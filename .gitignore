@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Data & model artifacts
+data/cache/
+models/*.pkl
+models/*.joblib
+
+# Reports & logs
+reports/*.txt
+reports/*.html
+logs/*.log
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / config overrides
+config/best_params.yaml
+*.env
+.env
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/

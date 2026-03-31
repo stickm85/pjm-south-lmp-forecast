@@ -1,0 +1,68 @@
+# PJM SOUTH LMP Forecast — Configuration
+pjm:
+  api_base_url: "https://api.pjm.com/api/v1"
+  api_key: ""  # Set your PJM API key here
+  node: "SOUTH"
+  western_hub: "WESTHUB"
+
+gas:
+  source: "ice"  # Options: ice, platts, ngi
+  api_key: ""    # Set your gas price API key here
+
+weather:
+  noaa_api_base: "https://api.weather.gov"
+  cities:
+    south:
+      - name: "Richmond VA"
+        station: "KRIC"
+        lat: 37.5407
+        lon: -77.4360
+      - name: "Norfolk VA"
+        station: "KORF"
+        lat: 36.8468
+        lon: -76.2951
+      - name: "Raleigh NC"
+        station: "KRDU"
+        lat: 35.7796
+        lon: -78.6382
+    whub:
+      - name: "Pittsburgh PA"
+        station: "KPIT"
+        lat: 40.4406
+        lon: -79.9959
+      - name: "Columbus OH"
+        station: "KCMH"
+        lat: 39.9612
+        lon: -82.9988
+
+model:
+  spike_threshold: 100.0       # $/MWh — hours above this are "spike" events
+  heat_rate_ref_gas: 7.0       # MMBtu/MWh for efficient gas units
+  heat_rate_ref_old: 10.0      # MMBtu/MWh for older/peaker gas units
+  quantile_lo: 0.05            # Lower bound for 90% CI
+  quantile_hi: 0.95            # Upper bound for 90% CI
+  lgbm_params:
+    objective: mae
+    n_estimators: 500
+    learning_rate: 0.05
+    num_leaves: 63
+    min_child_samples: 20
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+  ridge_alpha: 1.0
+  ensemble_alpha_onpeak_weekday: 0.75
+  ensemble_alpha_offpeak_weekday: 0.70
+  ensemble_alpha_weekend_holiday: 0.65
+  optuna_n_trials: 50
+  walk_forward_window_days: 90
+
+data:
+  cache_dir: "data/cache"
+  historical_years: 3
+
+paths:
+  models_dir: "models"
+  reports_dir: "reports"
+  logs_dir: "logs"
