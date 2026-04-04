@@ -7,7 +7,7 @@ from datetime import date
 
 
 def test_calendar_utils_onpeak():
-    """Verify on-peak classification for weekday HE07-HE23."""
+    """Verify on-peak classification for weekday HE08-HE23."""
     from src.data.calendar_utils import CalendarUtils
     cal = CalendarUtils()
 
@@ -23,9 +23,13 @@ def test_calendar_utils_onpeak():
     dt_weekend = pd.Timestamp("2024-01-06 10:00")
     assert cal.is_onpeak(dt_weekend) is False
 
-    # Monday HE07 boundary
+    # Monday HE07 boundary → off-peak (HE08 is the first on-peak hour)
     dt_he07 = pd.Timestamp("2024-01-08 07:00")
-    assert cal.is_onpeak(dt_he07) is True
+    assert cal.is_onpeak(dt_he07) is False
+
+    # Monday HE08 boundary → on-peak (first on-peak hour)
+    dt_he08 = pd.Timestamp("2024-01-08 08:00")
+    assert cal.is_onpeak(dt_he08) is True
 
     # Monday HE23 boundary
     dt_he23 = pd.Timestamp("2024-01-08 23:00")

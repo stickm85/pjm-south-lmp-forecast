@@ -19,11 +19,11 @@ This tool predicts **next-day hourly electricity prices** for the **PJM SOUTH ag
 
 You need three numbers, all readily available by 09:00 EPT:
 
-1. **Western Hub DA On-Peak Price ($/MWh)** — The market consensus for next-day PJM Western Hub on-peak electricity. "On-Peak" = Hours Ending 07 through 23, Monday through Friday, excluding NERC holidays.
+1. **Western Hub DA On-Peak Price ($/MWh)** — The market consensus for next-day PJM Western Hub on-peak electricity. "On-Peak" = Hours Ending 08 through 23, Monday through Friday, excluding NERC holidays.
 
 2. **Western Hub DA Off-Peak Price ($/MWh)** — Same node, but for off-peak hours (all other hours not classified above).
 
-3. **Transco Zone 6 NNY Gas Price ($/MMBtu)** — Next-day natural gas price at Transco Zone 6 Non-NY delivery point. This is the marginal fuel price that strongly drives SOUTH electricity prices.
+3. **Transco Zone 5 Gas Price ($/MMBtu)** — Next-day natural gas price at Transco Zone 5 delivery point (Virginia/North Carolina). This is the marginal fuel price that most directly drives SOUTH electricity prices, as SOUTH-zone generators take delivery on Zone 5.
 
 ---
 
@@ -110,10 +110,10 @@ gas:
 - Look for "On-Peak" (also written as "5×16" or "peak") and "Off-Peak" (or "7×8" and weekends) prices
 - Typical On-Peak range: $30–$80/MWh; Off-Peak: $20–$60/MWh
 
-**Transco Zone 6 NNY Gas Price:**
-- Check ICE Natural Gas screen for "Transco Zone 6 Non-NY" next-day gas
+**Transco Zone 5 Gas Price:**
+- Check ICE Natural Gas screen for "Transco Zone 5" next-day gas
 - Or call your gas broker for the daily index price
-- Typical range: $2.50–$8.00/MMBtu (higher in winter)
+- Typical range: $2.50–$7.00/MMBtu (higher in winter)
 
 ### Running the Forecast
 
@@ -321,7 +321,7 @@ OUTPUT FORMATS:
   --output-file f  Save to file f instead of printing
 
 ON-PEAK DEFINITION:
-  HE07–HE23, Monday–Friday, excluding NERC holidays
+  HE08–HE23, Monday–Friday, excluding NERC holidays
 
 NERC HOLIDAYS (2025):
   Jan 1, May 26, Jul 4, Sep 1, Nov 27, Dec 25

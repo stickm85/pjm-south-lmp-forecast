@@ -94,7 +94,7 @@ class DailyIngestPipeline:
             "interchange": lambda: self.pjm.fetch_interchange(start, end),
             "fuel_mix": lambda: self.pjm.fetch_fuel_mix(start, end),
             "virtual_bids": lambda: self.pjm.fetch_virtual_bids(start, end),
-            "gas_price": lambda: self.gas.fetch_transco_z6_nny(start, end),
+            "gas_price": lambda: self.gas.fetch_transco_z5(start, end),
             "henry_hub": lambda: self.gas.fetch_henry_hub(start, end),
             "transmission_outages": lambda: self.outage.fetch_transmission_outages(start, end),
             "generator_outages": lambda: self.outage.fetch_generator_outages(start, end),
