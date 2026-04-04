@@ -33,7 +33,7 @@ class EnhancedFeatureBuilder:
         target_date: Union[str, pd.Timestamp],
         openmeteo_data: Optional[pd.DataFrame] = None,
         columbia_gas: Optional[pd.DataFrame] = None,
-        z5_spot: Optional[pd.Series] = None,
+        z5_spot: Optional[Union[pd.Series, pd.DataFrame, float]] = None,
         z5_forward: Optional[pd.DataFrame] = None,
         whub_forward: Optional[pd.DataFrame] = None,
         whub_spot_da: Optional[float] = None,
@@ -47,7 +47,7 @@ class EnhancedFeatureBuilder:
             target_date:       Date to build features for.
             openmeteo_data:    DataFrame from OpenMeteoClient (all cities, hourly).
             columbia_gas:      DataFrame with columns [date, price] from Morningstar.
-            z5_spot:           Series or float — Transco Z5 spot price D-1 ($/MMBtu).
+            z5_spot:           Series, DataFrame, or float — Transco Z5 spot price D-1 ($/MMBtu).
             z5_forward:        DataFrame with columns [date, price] — Z5 prompt-month.
             whub_forward:      DataFrame with columns [date, price] — WHub prompt-month.
             whub_spot_da:      WHub DA on-peak price (user input, $/MWh).

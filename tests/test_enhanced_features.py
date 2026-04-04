@@ -317,7 +317,7 @@ class TestEnhancedFeatures:
 
     def test_columbia_z5_spread_formula(self):
         """Columbia−Z5 spread should equal columbia price − z5 price (scalar)."""
-        from src.features.enhanced_features import EnhancedFeatureBuilder, EnhancedFeatureBuilder
+        from src.features.enhanced_features import EnhancedFeatureBuilder
         from src.data.mock_data import MockDataGenerator
         mock = MockDataGenerator(seed=0)
         start = pd.Timestamp(self.TARGET_DATE) - pd.Timedelta(days=3)

@@ -160,10 +160,11 @@ class DailyIngestPipeline:
                 sources_fetched += 1
 
         # Open-Meteo data (all 6 variables, all cities combined)
+        all_cities = south_cities + whub_cities
         openmeteo_cache = self.cache_dir / f"openmeteo_all_{target_date.date()}.parquet"
         if not openmeteo_cache.exists() or force_refresh:
             try:
-                df = self.openmeteo.fetch_forecast(target_date, list(south_cities + whub_cities))
+                df = self.openmeteo.fetch_forecast(target_date, all_cities)
                 if not df.empty:
                     df.to_parquet(openmeteo_cache, index=False)
                     sources_fetched += 1
