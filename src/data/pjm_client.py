@@ -104,5 +104,64 @@ class PJMClient:
             return self._mock.generate_virtual_bids(start_date, end_date)
         raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
 
+    def fetch_ancillary_prices(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch ancillary service market clearing prices (RegA, RegD, Sync Reserve).
+
+        Sources: reg_market_results and sr_market_results PJM feeds.
+        When regulation or reserve prices spike, DA LMPs often co-move via ORDC.
+
+        Returns DataFrame with columns:
+            datetime, reg_a_price, reg_d_price, sync_reserve_price
+        """
+        if not self._has_api_key():
+            logger.warning("No PJM API key configured — using mock data for ancillary prices")
+            return self._mock.generate_ancillary_prices(start_date, end_date)
+        raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
+
+    def fetch_emission_rates(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch 5-minute marginal CO2 emission rates, aggregated to hourly.
+
+        Source: fivemin_marginal_emission_rates PJM feed.
+        Higher emission rate signals dirtier/more expensive unit on the margin
+        (gas peaker or coal), directly correlated with higher LMPs.
+
+        Returns DataFrame with columns:
+            datetime, marginal_emission_rate_lbs_mwh
+        """
+        if not self._has_api_key():
+            logger.warning("No PJM API key configured — using mock data for emission rates")
+            return self._mock.generate_emission_rates(start_date, end_date)
+        raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
+
+    def fetch_tx_ratings(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch transmission line thermal ratings and de-rate flags.
+
+        Source: OASIS thermal ratings feed.
+        De-rated transmission corridors into SOUTH increase congestion
+        component of LMP, especially during hot weather.
+
+        Returns DataFrame with columns:
+            date, tx_derate_flag, derated_mw
+        """
+        if not self._has_api_key():
+            logger.warning("No PJM API key configured — using mock data for tx ratings")
+            return self._mock.generate_tx_ratings(start_date, end_date)
+        raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
+
+    def fetch_instantaneous_load(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch PJM instantaneous load (5-min), aggregated to hourly.
+
+        Source: inst_load PJM feed.
+        Allows computing real-time load forecast error for intra-day accuracy
+        assessment and model recalibration.
+
+        Returns DataFrame with columns:
+            datetime, instantaneous_load_mw
+        """
+        if not self._has_api_key():
+            logger.warning("No PJM API key configured — using mock data for instantaneous load")
+            return self._mock.generate_instantaneous_load(start_date, end_date)
+        raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
+
 
 from .mock_data import MockDataGenerator as MockFallback

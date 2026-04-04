@@ -14,6 +14,7 @@ from .forecast_error import ForecastErrorBuilder
 from .market_features import MarketFeatureBuilder
 from .regime_features import RegimeFeatureBuilder
 from .temporal_features import TemporalFeatureBuilder
+from .enhanced_features import EnhancedFeatureBuilder
 from ..data.mock_data import MockDataGenerator
 
 
@@ -43,6 +44,7 @@ class FeaturePipeline:
         self.market_builder = MarketFeatureBuilder()
         self.regime_builder = RegimeFeatureBuilder()
         self.temporal_builder = TemporalFeatureBuilder(config_path)
+        self.enhanced_builder = EnhancedFeatureBuilder()
         self.mock = MockDataGenerator()
 
     def build(
@@ -183,10 +185,60 @@ class FeaturePipeline:
             )),
         )
 
+        # 10. Enhanced features (Open-Meteo, Morningstar, PJM ancillary/emissions)
+        from ..data.openmeteo_client import OpenMeteoMockData
+        openmeteo_mock = OpenMeteoMockData()
+        openmeteo_data = historical_data.get(
+            "openmeteo",
+            openmeteo_mock.generate_all_cities(target_date, target_date),
+        )
+        enhanced_feats = self.enhanced_builder.build(
+            target_date,
+            openmeteo_data=openmeteo_data,
+            columbia_gas=historical_data.get(
+                "columbia_gas",
+                self.mock.generate_columbia_gas(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            z5_spot=historical_data.get(
+                "gas_price",
+                self.mock.generate_gas_price(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            z5_forward=historical_data.get(
+                "z5_gas_forward",
+                self.mock.generate_z5_gas_forward(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            whub_forward=historical_data.get(
+                "whub_forward",
+                self.mock.generate_whub_forward(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            whub_spot_da=whub_onpeak,
+            ancillary_prices=historical_data.get(
+                "ancillary_prices",
+                self.mock.generate_ancillary_prices(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            emission_rates=historical_data.get(
+                "emission_rates",
+                self.mock.generate_emission_rates(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+        )
+
         # Merge all feature sets on hour_ending
         result = user_feats.copy()
         for df in [temporal_feats, lag_feats, load_feats, weather_feats,
-                   renewable_feats, error_feats, market_feats, regime_feats]:
+                   renewable_feats, error_feats, market_feats, regime_feats,
+                   enhanced_feats]:
             if "hour_ending" in df.columns:
                 merge_cols = [c for c in df.columns if c != "datetime"]
                 # Avoid duplicate columns

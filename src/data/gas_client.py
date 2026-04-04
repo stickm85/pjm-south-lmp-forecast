@@ -63,5 +63,45 @@ class GasClient:
             return self._mock.generate_henry_hub(start_date, end_date)
         raise NotImplementedError("Set gas.api_key in config/settings.yaml")
 
+    def fetch_columbia_gas(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch Columbia Gas (TCO) daily spot price ($/MMBtu).
+
+        Columbia Gas is a secondary gas delivery point for some Dominion
+        generators in the SOUTH zone. Adding this captures a second gas
+        delivery cost signal relevant to SOUTH LMP.
+
+        Returns DataFrame with columns: date, price
+        """
+        if not self._has_api_key():
+            logger.warning("No gas API key configured — using mock data for Columbia Gas")
+            return self._mock.generate_columbia_gas(start_date, end_date)
+        raise NotImplementedError("Set gas.api_key in config/settings.yaml")
+
+    def fetch_whub_forward(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch PJM Western Hub prompt-month forward curve price ($/MWh).
+
+        The premium of the prompt-month forward over spot DA signals
+        market expectations of near-term power price tightness.
+
+        Returns DataFrame with columns: date, price
+        """
+        if not self._has_api_key():
+            logger.warning("No gas API key configured — using mock data for WHub forward")
+            return self._mock.generate_whub_forward(start_date, end_date)
+        raise NotImplementedError("Set gas.api_key in config/settings.yaml")
+
+    def fetch_z5_gas_forward(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch Transco Zone 5 prompt-month gas forward price ($/MMBtu).
+
+        The spread between the prompt-month forward and the spot price
+        (gas contango/backwardation) signals supply/demand expectations.
+
+        Returns DataFrame with columns: date, price
+        """
+        if not self._has_api_key():
+            logger.warning("No gas API key configured — using mock data for Z5 forward")
+            return self._mock.generate_z5_gas_forward(start_date, end_date)
+        raise NotImplementedError("Set gas.api_key in config/settings.yaml")
+
 
 from .mock_data import MockDataGenerator as MockFallback

@@ -56,6 +56,11 @@ class DailyIngestPipeline:
         self.capacity = CapacityClient(config_path)
         self.market = MarketClient(config_path)
 
+        from ..data.openmeteo_client import OpenMeteoClient
+        from ..data.morningstar_client import MorningstarClient
+        self.openmeteo = OpenMeteoClient()
+        self.morningstar = MorningstarClient(config_path)
+
     def run(
         self,
         target_date: Union[str, pd.Timestamp, date] = None,
@@ -96,6 +101,9 @@ class DailyIngestPipeline:
             "virtual_bids": lambda: self.pjm.fetch_virtual_bids(start, end),
             "gas_price": lambda: self.gas.fetch_transco_z5(start, end),
             "henry_hub": lambda: self.gas.fetch_henry_hub(start, end),
+            "columbia_gas": lambda: self.gas.fetch_columbia_gas(start, end),
+            "whub_forward": lambda: self.gas.fetch_whub_forward(start, end),
+            "z5_gas_forward": lambda: self.gas.fetch_z5_gas_forward(start, end),
             "transmission_outages": lambda: self.outage.fetch_transmission_outages(start, end),
             "generator_outages": lambda: self.outage.fetch_generator_outages(start, end),
             "iso_prices": lambda: self.iso.fetch_iso_prices(start, end),
@@ -105,6 +113,11 @@ class DailyIngestPipeline:
             "coal_price": lambda: self.market.fetch_coal_price(start, end),
             "emergency_logs": lambda: self.market.fetch_emergency_logs(start, end),
             "demand_response": lambda: self.market.fetch_demand_response(start, end),
+            # New PJM feeds
+            "ancillary_prices": lambda: self.pjm.fetch_ancillary_prices(start, end),
+            "emission_rates": lambda: self.pjm.fetch_emission_rates(start, end),
+            "tx_ratings": lambda: self.pjm.fetch_tx_ratings(start, end),
+            "instantaneous_load": lambda: self.pjm.fetch_instantaneous_load(start, end),
         }
 
         for source_name, fetch_fn in fetch_map.items():
@@ -145,6 +158,28 @@ class DailyIngestPipeline:
                     errors += 1
             else:
                 sources_fetched += 1
+
+        # Open-Meteo data (all 6 variables, all cities combined)
+        openmeteo_cache = self.cache_dir / f"openmeteo_all_{target_date.date()}.parquet"
+        if not openmeteo_cache.exists() or force_refresh:
+            try:
+                df = self.openmeteo.fetch_forecast(target_date, list(south_cities + whub_cities))
+                if not df.empty:
+                    df.to_parquet(openmeteo_cache, index=False)
+                    sources_fetched += 1
+                    fetched_sources.append("openmeteo_all")
+                    logger.debug(f"Fetched and cached: openmeteo_all ({len(df)} rows)")
+            except Exception as e:
+                logger.warning(f"Open-Meteo fetch failed: {e} — falling back to mock data")
+                from ..data.openmeteo_client import OpenMeteoMockData
+                mock_om = OpenMeteoMockData()
+                df = mock_om.generate_all_cities(start, end)
+                df.to_parquet(openmeteo_cache, index=False)
+                sources_fetched += 1
+                fetched_sources.append("openmeteo_all_mock")
+                errors += 1
+        else:
+            sources_fetched += 1
 
         return {
             "sources_fetched": sources_fetched,

@@ -101,6 +101,107 @@ gas:
 
 ---
 
+## Section 2b: Setting Up with Visual Studio Code (Recommended)
+
+Visual Studio Code (VS Code) is a free code editor that makes running and editing this tool much easier than using a plain terminal window. This section walks through the complete setup from scratch — no prior coding experience needed.
+
+### Step 1: Install Visual Studio Code
+
+1. Open your browser and go to **https://code.visualstudio.com/**
+2. Click the big blue download button for your operating system
+3. **Windows:** Run the installer. On the "Select Additional Tasks" screen, check **all boxes** — especially:
+   - ✅ "Add to PATH (requires shell restart)"
+   - ✅ "Register Code as an editor for supported file types"
+   - ✅ "Add 'Open with Code' action to Windows Explorer"
+4. **Mac:** Drag the VS Code icon into your `Applications` folder
+5. Open VS Code after installation completes
+
+### Step 2: Install the Python Extension
+
+1. In VS Code, click the **square icon** on the left sidebar (or press `Ctrl+Shift+X` on Windows / `Cmd+Shift+X` on Mac) to open the Extensions panel
+2. In the search box, type **Python**
+3. Click **Install** on the extension by **Microsoft** — it has a blue logo and millions of downloads
+4. Wait for the installation to finish (a progress bar appears at the bottom)
+
+### Step 3: Open the Project Folder
+
+1. In VS Code, go to **File → Open Folder**
+2. Navigate to where you downloaded or extracted `pjm-south-lmp-forecast`
+3. Click **"Select Folder"** (Windows) or **"Open"** (Mac)
+4. You should now see all project files listed in the left sidebar (Explorer panel)
+
+### Step 4: Set Up a Python Virtual Environment
+
+A virtual environment keeps this project's packages separate from your system Python, preventing conflicts.
+
+Open the built-in terminal:
+- Press the backtick key `` Ctrl+` `` (the key just below Escape), **or**
+- Go to **Terminal → New Terminal** in the menu
+
+A command prompt appears at the bottom of VS Code. Type these commands one at a time, pressing **Enter** after each:
+
+**Windows:**
+```
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**Mac/Linux:**
+```
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+What each command does:
+- The **first command** creates a private workspace folder (`venv/`) for this project's packages
+- The **second command** activates that workspace — your prompt should change to show `(venv)` at the start
+- The **third command** installs all required packages (LightGBM, scikit-learn, pandas, etc.) — takes 2–5 minutes
+
+### Step 5: Select the Python Interpreter
+
+VS Code needs to know which Python to use (the one in your virtual environment):
+
+1. Press `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (Mac) to open the **Command Palette**
+2. Type **Python: Select Interpreter** and click it
+3. Choose the option that shows `./venv/...` or `venv` — this is the virtual environment you just created
+4. The Python version now appears in the bottom-left status bar of VS Code
+
+### Step 6: Run a Forecast
+
+In the VS Code terminal (confirm `(venv)` appears at the start of the line), type:
+
+```
+python cli.py forecast --whub-onpeak 45.50 --whub-offpeak 28.75 --gas 3.42
+```
+
+The 24-hour forecast table will appear right in the terminal. For help with the command, see **Section 3** below.
+
+### Step 7: Edit Configuration (API Keys)
+
+1. In the left sidebar (Explorer), click the **`config`** folder, then click **`settings.yaml`**
+2. The file opens in the editor — click anywhere and type to edit
+3. Replace the empty quotes `""` next to `api_key` with your actual API credentials
+4. Press `Ctrl+S` (Windows) / `Cmd+S` (Mac) to save
+
+### Step 8: Run Tests (Optional — Verify Installation)
+
+1. Click the **beaker/flask icon** on the left sidebar (Testing panel)
+2. If prompted, click **"Configure Python Tests"** → select **"pytest"** → select the `tests` folder
+3. Click the green **▶ Run All Tests** button
+4. **Green checkmarks** = passing tests (everything works correctly)
+5. **Red X marks** = failing tests (something may be misconfigured — see Troubleshooting below)
+
+### Step 9: View Output Files and Charts
+
+After running the `evaluate` command:
+1. Check the **`output/`** folder in the left sidebar
+2. Click on `.png` chart files to view them directly inside VS Code (no external viewer needed)
+3. Click on `.csv` files to see tabular data with colored formatting
+
+---
+
 ## Section 3: Daily Usage (09:00 EPT)
 
 ### Getting Your Input Values
@@ -288,6 +389,21 @@ The tool doesn't have write permission to the output directory.
 ```bash
 python cli.py forecast --whub-onpeak 45.0 --whub-offpeak 30.0 --gas 3.5 --output-file ~/Desktop/forecast.csv
 ```
+
+---
+
+### VS Code Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| "Python not found" in VS Code terminal | Click the Python version in the bottom-left status bar → **Select Interpreter** → choose the `venv` option |
+| Terminal shows `PS C:\...>` but venv activation fails | Windows PowerShell execution policy issue. Type: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` then try activating again |
+| `"No module named 'click'"` or similar import error | Make sure `(venv)` appears at the start of your terminal prompt. If not, run `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Mac/Linux) again |
+| VS Code shows squiggly red/yellow lines under imports | Select the correct Python interpreter (Section 2b, Step 5) — choose the `venv` one |
+| Charts don't display when clicking `.png` files | Install the **"Image Preview"** extension: click Extensions icon → search "Image Preview" → Install |
+| Terminal output is too small to read | Drag the **top edge** of the terminal panel upward to make it taller |
+| VS Code asks "Do you trust the authors of this folder?" | Click **"Yes, I trust the authors"** — this is your own project folder |
+| `(venv)` disappears after reopening VS Code | Re-activate the virtual environment each session, or set `python.terminal.activateEnvironment: true` in VS Code settings |
 
 ---
 
