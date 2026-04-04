@@ -11,7 +11,7 @@ class CalendarUtils:
     """Manages NERC holiday calendar and on-peak/off-peak classification.
 
     PJM On-Peak definition:
-      - Hours Ending 07–23 (HE07–HE23) Eastern Prevailing Time
+      - Hours Ending 08–23 (HE08–HE23) Eastern Prevailing Time
       - Monday through Friday
       - Excluding NERC holidays
 
@@ -41,14 +41,14 @@ class CalendarUtils:
     def is_onpeak(self, dt: Union[datetime, pd.Timestamp]) -> bool:
         """Return True if the given datetime (EPT) is an on-peak hour.
 
-        On-Peak: HE07–HE23, Monday–Friday, non-NERC-holiday.
-        HE07 means the hour ending at 07:00 (i.e., 06:00–07:00).
-        We use hour-ending convention: a datetime with hour=7 means HE07.
+        On-Peak: HE08–HE23, Monday–Friday, non-NERC-holiday.
+        HE08 means the hour ending at 08:00 (i.e., 07:00–08:00).
+        We use hour-ending convention: a datetime with hour=8 means HE08.
         """
         if isinstance(dt, pd.Timestamp):
             dt = dt.to_pydatetime()
         he = dt.hour  # 0 = midnight (HE24 prior day), 1 = HE01, ..., 23 = HE23
-        if he < 7 or he > 23:
+        if he < 8 or he > 23:
             return False
         if dt.weekday() >= 5:
             return False

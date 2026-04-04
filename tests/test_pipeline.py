@@ -70,12 +70,12 @@ def test_pipeline_onpeak_consistency():
     pipeline = FeaturePipeline()
     # 2024-01-08 is a Monday (non-holiday)
     df = pipeline.build("2024-01-08", 50.0, 30.0, 3.5)
-    # HE07-HE23 should be on-peak on a weekday
-    for he in range(7, 24):
+    # HE08-HE23 should be on-peak on a weekday
+    for he in range(8, 24):
         row = df[df["hour_ending"] == he].iloc[0]
         assert row["is_onpeak"] == 1, f"HE{he:02d} should be on-peak on Monday"
-    # HE01-HE06 should be off-peak
-    for he in range(1, 7):
+    # HE01-HE07 should be off-peak
+    for he in range(1, 8):
         row = df[df["hour_ending"] == he].iloc[0]
         assert row["is_onpeak"] == 0, f"HE{he:02d} should be off-peak"
 

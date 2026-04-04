@@ -1,4 +1,4 @@
-"""Gas price API client for Transco Zone 6 NNY and Henry Hub prices."""
+"""Gas price API client for Transco Zone 5, Transco Zone 6 NNY, and Henry Hub prices."""
 
 import pandas as pd
 from typing import Union
@@ -27,8 +27,25 @@ class GasClient:
     def _has_api_key(self) -> bool:
         return bool(self.api_key and self.api_key.strip())
 
+    def fetch_transco_z5(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch daily Transco Zone 5 gas price ($/MMBtu).
+
+        This is the PRIMARY gas price input for PJM SOUTH forecasting.
+        Zone 5 covers Virginia/North Carolina where SOUTH-zone generators
+        take delivery.
+
+        Returns DataFrame with columns: date, gas_price
+        """
+        if not self._has_api_key():
+            logger.warning("No gas API key configured — using mock data")
+            return self._mock.generate_gas_price(start_date, end_date)
+        raise NotImplementedError("Set gas.api_key in config/settings.yaml")
+
     def fetch_transco_z6_nny(self, start_date, end_date) -> pd.DataFrame:
         """Fetch daily Transco Zone 6 NNY gas price ($/MMBtu).
+
+        This is a SECONDARY feature (not user input) used to derive the
+        Zone 6 − Zone 5 pipeline congestion spread signal.
 
         Returns DataFrame with columns: date, gas_price
         """

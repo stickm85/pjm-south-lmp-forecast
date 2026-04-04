@@ -13,7 +13,7 @@ class UserInputExpander:
     User provides:
       - whub_onpeak: Western Hub DA On-Peak price ($/MWh)
       - whub_offpeak: Western Hub DA Off-Peak price ($/MWh)
-      - gas_price: Transco Zone 6 NNY gas price ($/MMBtu)
+      - gas_price: Transco Zone 5 gas price ($/MMBtu)
 
     Outputs 24 rows (HE01–HE24) with derived features.
     """

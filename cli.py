@@ -30,11 +30,11 @@ def cli():
 @cli.command()
 @click.option("--whub-onpeak", "-op", type=float, required=True,
               help="Expected D+1 Western Hub DA On-Peak price ($/MWh). "
-                   "On-Peak = HE07-HE23 Mon-Fri excluding NERC holidays.")
+                   "On-Peak = HE08-HE23 Mon-Fri excluding NERC holidays.")
 @click.option("--whub-offpeak", "-fp", type=float, required=True,
               help="Expected D+1 Western Hub DA Off-Peak price ($/MWh).")
 @click.option("--gas", "-g", type=float, required=True,
-              help="Expected D+1 Transco Zone 6 NNY gas price ($/MMBtu).")
+              help="Expected D+1 Transco Zone 5 gas price ($/MMBtu).")
 @click.option("--date", "-d", type=click.DateTime(formats=["%Y-%m-%d"]), default=None,
               help="Target forecast date (default: tomorrow in EPT). Format: YYYY-MM-DD.")
 @click.option("--model-path", "-m", type=click.Path(), default="models/ensemble.pkl",
@@ -51,7 +51,7 @@ def forecast(whub_onpeak, whub_offpeak, gas, date, model_path, output, output_fi
     \b
     --whub-onpeak: Western Hub Day-Ahead On-Peak price
     --whub-offpeak: Western Hub Day-Ahead Off-Peak price
-    --gas: Transco Zone 6 NNY daily gas price
+    --gas: Transco Zone 5 daily gas price
 
     \b
     Example:
