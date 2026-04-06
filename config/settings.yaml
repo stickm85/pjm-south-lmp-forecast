@@ -9,6 +9,10 @@ gas:
   source: "ice"  # Options: ice, platts, ngi
   api_key: ""    # Set your gas price API key here
 
+morningstar:
+  api_base_url: "https://api.morningstar.com/v2/datasets"
+  api_key: ""    # Set your Morningstar Commodities API key here
+
 weather:
   noaa_api_base: "https://api.weather.gov"
   cities:

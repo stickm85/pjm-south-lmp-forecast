@@ -304,6 +304,87 @@ class MockDataGenerator:
         return pd.DataFrame({"date": idx, "dr_event_flag": dr_flag, "dr_mw": dr_mw})
 
     # ------------------------------------------------------------------
+    # New PJM API mock generators
+    # ------------------------------------------------------------------
+
+    def generate_ancillary_prices(self, start_date, end_date) -> pd.DataFrame:
+        """Hourly ancillary service prices (RegA, RegD, Sync Reserve) in $/MW."""
+        idx = self._hourly_index(start_date, end_date)
+        n = len(idx)
+        reg_a = np.maximum(0, self.rng.normal(12.0, 5.0, n))
+        reg_d = np.maximum(0, self.rng.normal(18.0, 7.0, n))
+        sync_reserve = np.maximum(0, self.rng.normal(8.0, 15.0, n))
+        return pd.DataFrame({
+            "datetime": idx,
+            "reg_a_price": np.round(reg_a, 2),
+            "reg_d_price": np.round(reg_d, 2),
+            "sync_reserve_price": np.round(sync_reserve, 2),
+        })
+
+    def generate_emission_rates(self, start_date, end_date) -> pd.DataFrame:
+        """Hourly marginal CO2 emission rates (lb CO2/MWh)."""
+        idx = self._hourly_index(start_date, end_date)
+        n = len(idx)
+        # Gas peaker ~1100 lb/MWh, coal ~2200 lb/MWh; mix varies by hour
+        base = 1100.0 + self._hour_shape(idx) * 200.0
+        noise = self.rng.normal(0, 100, n)
+        rate = np.clip(base + noise, 500.0, 2500.0)
+        return pd.DataFrame({
+            "datetime": idx,
+            "marginal_emission_rate_lbs_mwh": np.round(rate, 1),
+        })
+
+    def generate_tx_ratings(self, start_date, end_date) -> pd.DataFrame:
+        """Daily transmission de-rate flags and derated MW."""
+        idx = self._daily_index(start_date, end_date)
+        n = len(idx)
+        derate_flag = (self.rng.random(n) < 0.08).astype(int)
+        derated_mw = derate_flag * np.abs(self.rng.normal(500, 200, n))
+        return pd.DataFrame({
+            "date": idx,
+            "tx_derate_flag": derate_flag,
+            "derated_mw": np.round(derated_mw, 0),
+        })
+
+    def generate_instantaneous_load(self, start_date, end_date) -> pd.DataFrame:
+        """Hourly PJM instantaneous load (aggregated from 5-min, MW)."""
+        df = self.generate_metered_load(start_date, end_date)
+        # Instantaneous is slightly different from metered (5-min snaps)
+        df["instantaneous_load_mw"] = df["south_load_mw"] + self.rng.normal(0, 50, len(df))
+        return df[["datetime", "instantaneous_load_mw"]]
+
+    # ------------------------------------------------------------------
+    # New Morningstar mock generators
+    # ------------------------------------------------------------------
+
+    def generate_columbia_gas(self, start_date, end_date) -> pd.DataFrame:
+        """Daily Columbia Gas (TCO) spot price ($/MMBtu)."""
+        idx = self._daily_index(start_date, end_date)
+        n = len(idx)
+        seasonal = 0.5 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
+        spread = self.rng.uniform(-0.5, 0.5, n)
+        price = np.maximum(2.0, 3.5 + seasonal + spread + self.rng.normal(0, 0.2, n))
+        return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
+
+    def generate_whub_forward(self, start_date, end_date) -> pd.DataFrame:
+        """Daily PJM WHub prompt-month forward price ($/MWh)."""
+        idx = self._daily_index(start_date, end_date)
+        n = len(idx)
+        summer_peak = 15.0 * np.sin(2 * np.pi * (idx.dayofyear - 80) / 365)
+        winter_peak = 8.0 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
+        price = np.clip(45.0 + summer_peak + winter_peak + self.rng.normal(0, 3.0, n), 25.0, 80.0)
+        return pd.DataFrame({"date": idx, "price": np.round(price, 2)})
+
+    def generate_z5_gas_forward(self, start_date, end_date) -> pd.DataFrame:
+        """Daily Transco Z5 prompt-month gas forward price ($/MMBtu)."""
+        idx = self._daily_index(start_date, end_date)
+        n = len(idx)
+        seasonal = 0.5 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
+        contango = np.abs(self.rng.normal(0.15, 0.10, n))
+        price = np.maximum(2.0, 3.5 + seasonal + contango + self.rng.normal(0, 0.2, n))
+        return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
+
+    # ------------------------------------------------------------------
     # generate_all
     # ------------------------------------------------------------------
 
@@ -350,4 +431,13 @@ class MockDataGenerator:
             "rggi_price": self.generate_rggi_price(start_date, end_date),
             "demand_response": self.generate_demand_response(start_date, end_date),
             "coal_price": self.generate_coal_price(start_date, end_date),
+            # New PJM feeds
+            "ancillary_prices": self.generate_ancillary_prices(start_date, end_date),
+            "emission_rates": self.generate_emission_rates(start_date, end_date),
+            "tx_ratings": self.generate_tx_ratings(start_date, end_date),
+            "instantaneous_load": self.generate_instantaneous_load(start_date, end_date),
+            # New Morningstar feeds
+            "columbia_gas": self.generate_columbia_gas(start_date, end_date),
+            "whub_forward": self.generate_whub_forward(start_date, end_date),
+            "z5_gas_forward": self.generate_z5_gas_forward(start_date, end_date),
         }
