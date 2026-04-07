@@ -126,6 +126,196 @@ class ForecastEngine:
             })
         return pd.DataFrame(rows)
 
+    def forecast_friday_mode(
+        self,
+        saturday_date: Union[str, date, pd.Timestamp],
+        whub_onpeak_weekend: float,
+        whub_offpeak_weekend: float,
+        whub_onpeak_monday: float,
+        whub_offpeak_monday: float,
+        gas_price: float,
+        historical_data: Optional[Dict[str, pd.DataFrame]] = None,
+    ) -> Dict[str, pd.DataFrame]:
+        """Generate 72-hour forecast for Saturday, Sunday, Monday.
+
+        Cascade logic:
+        1. Saturday forecast uses real D-1 lags (Friday actuals from historical_data).
+        2. Sunday forecast uses Saturday's FORECAST as synthetic D-1 lags.
+        3. Monday forecast uses Sunday's FORECAST as synthetic D-1 lags.
+
+        Args:
+            saturday_date: The Saturday delivery date (first forecast day).
+            whub_onpeak_weekend: Weekend WHub On-Peak price for HE08-HE23 Sat & Sun.
+            whub_offpeak_weekend: Weekend WHub Off-Peak price for HE01-HE07/HE24 Sat & Sun.
+            whub_onpeak_monday: Monday WHub On-Peak price for HE08-HE23.
+            whub_offpeak_monday: Monday WHub Off-Peak price for HE01-HE07/HE24.
+            gas_price: Single gas price for all three days (Transco Z5).
+            historical_data: Optional historical DataFrames for D-1 lag features.
+
+        Returns:
+            Dict with keys 'saturday', 'sunday', 'monday', each a 24-row DataFrame.
+        """
+        saturday_date = pd.Timestamp(saturday_date)
+        sunday_date = saturday_date + pd.Timedelta(days=1)
+        monday_date = saturday_date + pd.Timedelta(days=2)
+
+        logger.info(
+            f"Running Friday 3-day forecast: {saturday_date.date()} / "
+            f"{sunday_date.date()} / {monday_date.date()}"
+        )
+
+        # --- Saturday: normal forecast, D-1 lags from Friday actuals ---
+        saturday_result = self.forecast(
+            target_date=saturday_date,
+            whub_onpeak=whub_onpeak_weekend,
+            whub_offpeak=whub_offpeak_weekend,
+            gas_price=gas_price,
+            historical_data=historical_data,
+        )
+
+        # --- Build synthetic historical data for Sunday using Saturday forecast ---
+        hist_with_saturday = self._inject_synthetic_d1(
+            base_hist=historical_data,
+            forecast_df=saturday_result,
+            forecast_date=saturday_date,
+            whub_onpeak=whub_onpeak_weekend,
+            whub_offpeak=whub_offpeak_weekend,
+        )
+
+        # --- Sunday: use Saturday forecast as synthetic D-1 lags ---
+        sunday_result = self.forecast(
+            target_date=sunday_date,
+            whub_onpeak=whub_onpeak_weekend,
+            whub_offpeak=whub_offpeak_weekend,
+            gas_price=gas_price,
+            historical_data=hist_with_saturday,
+        )
+
+        # Widen Sunday CIs by 15% to reflect synthetic D-1 uncertainty
+        sunday_result = sunday_result.copy()
+        sunday_result["Lower_90"] = (
+            sunday_result["Forecast_LMP"]
+            - (sunday_result["Forecast_LMP"] - sunday_result["Lower_90"]) * 1.15
+        ).round(2)
+        sunday_result["Upper_90"] = (
+            sunday_result["Forecast_LMP"]
+            + (sunday_result["Upper_90"] - sunday_result["Forecast_LMP"]) * 1.15
+        ).round(2)
+
+        # --- Build synthetic historical data for Monday using Sunday forecast ---
+        hist_with_sunday = self._inject_synthetic_d1(
+            base_hist=hist_with_saturday,
+            forecast_df=sunday_result,
+            forecast_date=sunday_date,
+            whub_onpeak=whub_onpeak_weekend,
+            whub_offpeak=whub_offpeak_weekend,
+        )
+
+        # --- Monday: use Sunday forecast as synthetic D-1 lags ---
+        monday_result = self.forecast(
+            target_date=monday_date,
+            whub_onpeak=whub_onpeak_monday,
+            whub_offpeak=whub_offpeak_monday,
+            gas_price=gas_price,
+            historical_data=hist_with_sunday,
+        )
+
+        # Widen Monday CIs by 25% to reflect double-synthetic D-1 uncertainty
+        monday_result = monday_result.copy()
+        monday_result["Lower_90"] = (
+            monday_result["Forecast_LMP"]
+            - (monday_result["Forecast_LMP"] - monday_result["Lower_90"]) * 1.25
+        ).round(2)
+        monday_result["Upper_90"] = (
+            monday_result["Forecast_LMP"]
+            + (monday_result["Upper_90"] - monday_result["Forecast_LMP"]) * 1.25
+        ).round(2)
+
+        return {
+            "saturday": saturday_result,
+            "sunday": sunday_result,
+            "monday": monday_result,
+        }
+
+    def _inject_synthetic_d1(
+        self,
+        base_hist: Optional[Dict[str, pd.DataFrame]],
+        forecast_df: pd.DataFrame,
+        forecast_date: pd.Timestamp,
+        whub_onpeak: float,
+        whub_offpeak: float,
+    ) -> Dict[str, pd.DataFrame]:
+        """Build a historical_data dict with synthetic D-1 data from a forecast DataFrame.
+
+        The synthetic entries mimic the shape of real DA/RT DataFrames so the
+        feature pipeline can compute D-1 lag features (Basis_D1, DA_RT_Spread_D1, etc.).
+
+        Args:
+            base_hist: Existing historical data dict (may be None).
+            forecast_df: 24-row forecast output to use as synthetic D-1 actuals.
+            forecast_date: The date of the forecast (will become D-1 for the next day).
+            whub_onpeak: On-peak WHub price used in the forecast (for whub_da column).
+            whub_offpeak: Off-peak WHub price used in the forecast.
+
+        Returns:
+            New historical_data dict with synthetic D-1 entries appended/overlaid.
+        """
+        import copy
+
+        new_hist = copy.deepcopy(base_hist) if base_hist else {}
+
+        # Build synthetic hourly timestamps for the forecast day
+        hours = []
+        for he in range(1, 25):
+            if he == 24:
+                ts = pd.Timestamp(
+                    forecast_date.year, forecast_date.month, forecast_date.day, 0, 0
+                ) + pd.Timedelta(days=1)
+            else:
+                ts = pd.Timestamp(
+                    forecast_date.year, forecast_date.month, forecast_date.day, he, 0
+                )
+            hours.append(ts)
+
+        lmp_values = forecast_df["Forecast_LMP"].values
+        whub_values = forecast_df["WHub_DA"].values
+
+        # Synthetic south_da (DA LMP actuals substitute)
+        synthetic_south_da = pd.DataFrame({
+            "datetime": hours,
+            "lmp": lmp_values,
+        })
+
+        # Synthetic whub_da
+        synthetic_whub_da = pd.DataFrame({
+            "datetime": hours,
+            "lmp": whub_values,
+        })
+
+        # Synthetic south_rt: use forecast LMP as approximation (no separate RT available)
+        synthetic_south_rt = pd.DataFrame({
+            "datetime": hours,
+            "lmp": lmp_values,
+        })
+
+        # Append synthetic rows to existing DataFrames (or create new ones)
+        for key, synthetic_df in [
+            ("south_da", synthetic_south_da),
+            ("whub_da", synthetic_whub_da),
+            ("south_rt", synthetic_south_rt),
+        ]:
+            if key in new_hist and new_hist[key] is not None:
+                existing = new_hist[key]
+                # Remove any existing rows for forecast_date to avoid duplicates
+                mask = existing["datetime"].dt.date != forecast_date.date()
+                new_hist[key] = pd.concat(
+                    [existing[mask], synthetic_df], ignore_index=True
+                ).sort_values("datetime").reset_index(drop=True)
+            else:
+                new_hist[key] = synthetic_df
+
+        return new_hist
+
     def train(
         self,
         start_date: Union[str, pd.Timestamp],
