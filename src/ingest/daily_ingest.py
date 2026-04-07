@@ -1,4 +1,4 @@
-"""Daily data ingestion pipeline for all 28 data sources."""
+"""Daily data ingestion pipeline for all 41 data sources."""
 
 import logging
 import json

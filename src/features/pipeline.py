@@ -19,7 +19,7 @@ from ..data.mock_data import MockDataGenerator
 
 
 class FeaturePipeline:
-    """Assembles all ~40 features for 24-hour LMP forecast.
+    """Assembles all ~51 features for 24-hour LMP forecast.
 
     Usage:
         pipeline = FeaturePipeline()

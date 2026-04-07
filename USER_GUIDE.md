@@ -171,7 +171,7 @@ pjm:
   api_key: "YOUR_PJM_DATAMINER_API_KEY"  # From https://api.pjm.com
 
 gas:
-  api_key: "YOUR_GAS_API_KEY"  # ICE, Platts, or NGI credentials
+  api_key: "YOUR_MORNINGSTAR_API_KEY"  # Morningstar Commodities credentials
 ```
 
 3. Press `Ctrl+S` to save

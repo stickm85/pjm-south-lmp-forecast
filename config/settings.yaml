@@ -6,15 +6,15 @@ pjm:
   western_hub: "WESTHUB"
 
 gas:
-  source: "ice"  # Options: ice, platts, ngi
-  api_key: ""    # Set your gas price API key here
+  source: "morningstar"  # Primary source: morningstar. Legacy options: ice, platts, ngi
+  api_key: ""    # Set your Morningstar Commodities API key here
 
 morningstar:
   api_base_url: "https://api.morningstar.com/v2/datasets"
   api_key: ""    # Set your Morningstar Commodities API key here
 
 weather:
-  noaa_api_base: "https://api.weather.gov"
+  noaa_api_base: "https://api.weather.gov"  # Legacy — not actively used; see openmeteo section
   cities:
     south:
       - name: "Richmond VA"
@@ -38,6 +38,11 @@ weather:
         station: "KCMH"
         lat: 39.9612
         lon: -82.9988
+
+openmeteo:
+  # Open-Meteo is the primary weather data source (free, no auth required)
+  forecast_url: "https://api.open-meteo.com/v1/forecast"
+  archive_url: "https://archive-api.open-meteo.com/v1/archive"
 
 model:
   spike_threshold: 100.0       # $/MWh — hours above this are "spike" events

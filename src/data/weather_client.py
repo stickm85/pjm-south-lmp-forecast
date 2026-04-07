@@ -1,4 +1,4 @@
-"""Weather data client using NOAA/NWS API."""
+"""Legacy weather data client — temperature, humidity, wind/cloud. See openmeteo_client.py for primary weather source (Open-Meteo API)."""
 
 import pandas as pd
 from typing import Union
@@ -10,9 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class WeatherClient:
-    """Client for weather forecast data.
+    """Legacy client for temperature, humidity, and wind/cloud data.
 
-    Uses NOAA/NWS API. Falls back to mock data when unavailable.
+    Note: The primary weather data source is now Open-Meteo (see openmeteo_client.py).
+    This client provides temperature_f, dew_point, humidity, wind_speed, and cloud_cover
+    using mock data fallback.
     """
 
     def __init__(self, config_path: Union[str, Path] = None):
@@ -29,7 +31,7 @@ class WeatherClient:
         Returns DataFrame with columns: datetime, temperature_f, city
         """
         try:
-            logger.debug(f"Fetching temperature for {city} from NOAA (using mock fallback)")
+            logger.debug(f"Fetching temperature for {city} (using mock fallback)")
             return self._mock.generate_weather_forecast(start_date, end_date, city)
         except Exception as e:
             logger.warning(f"Weather fetch failed for {city}: {e} — using mock")
