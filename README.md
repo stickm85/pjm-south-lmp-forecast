@@ -1,6 +1,6 @@
 # PJM SOUTH Day-Ahead LMP Forecast Model
 
-Hourly Day-Ahead LMP forecasting for PJM SOUTH aggregate node using 28 data sources, ~40 engineered features, LightGBM + Ridge ensemble, and spike classification.
+Hourly Day-Ahead LMP forecasting for PJM SOUTH aggregate node using 41 data sources, ~51 engineered features, LightGBM + Ridge ensemble, and spike classification.
 
 ## Features
 - 24-hour DA LMP forecast with 90% confidence intervals and spike risk flags
@@ -9,7 +9,7 @@ Hourly Day-Ahead LMP forecasting for PJM SOUTH aggregate node using 28 data sour
 - WHub price assignment by hour block (HE08-HE23 on-peak, HE01-HE07/HE24 off-peak) across all day types including weekends
 
 ## Status
-🚧 Under construction — full implementation incoming via PR.
+✅ Core implementation complete — train on real data to begin forecasting.
 
 ## New in v2
 

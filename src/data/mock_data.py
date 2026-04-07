@@ -1,4 +1,4 @@
-"""Mock data generator for all 28 data sources used in PJM SOUTH LMP forecasting."""
+"""Mock data generator for all 41 data sources used in PJM SOUTH LMP forecasting."""
 
 import numpy as np
 import pandas as pd
@@ -81,7 +81,7 @@ class MockDataGenerator:
         return da[["datetime", "lmp"]]
 
     def generate_gas_price(self, start_date, end_date) -> pd.DataFrame:
-        """Daily Transco Z6 NNY gas price ($/MMBtu)."""
+        """Daily Transco Zone 5 gas price ($/MMBtu)."""
         idx = self._daily_index(start_date, end_date)
         n = len(idx)
         base = 3.5

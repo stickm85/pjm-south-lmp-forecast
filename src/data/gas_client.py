@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class GasClient:
-    """Client for gas price data (ICE, Platts, NGI).
+    """Client for gas price data (Morningstar Commodities).
 
+    Fetches Transco Zone 5 (primary), Zone 6 NNY (secondary feature),
+    Henry Hub, Columbia Gas, and forward curves.
     Falls back to mock data if no API key is configured.
     """
 
