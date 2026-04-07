@@ -180,6 +180,73 @@ gas:
 
 ---
 
+## Section 3b: Friday 3-Day Forecasting
+
+### When to Use Friday Mode
+
+Every Friday morning, PJM's Day-Ahead market clears prices for **Saturday, Sunday, AND Monday all at once**. Your broker or trading desk will quote:
+
+- A **Weekend** Western Hub price for Saturday and Sunday (shared on-peak and off-peak)
+- A **Monday** Western Hub price for Monday (separate on-peak and off-peak)
+- A single **gas price** that covers the entire Saturday/Sunday/Monday delivery window
+
+### How to Run Friday Mode
+
+Open your VS Code terminal with `(venv)` active and run:
+
+```
+python cli.py forecast ^
+  --friday-mode ^
+  --whub-onpeak-weekend 32.00 ^
+  --whub-offpeak-weekend 22.50 ^
+  --whub-onpeak-monday 46.00 ^
+  --whub-offpeak-monday 28.00 ^
+  --gas-price 3.25 ^
+  --date 2026-04-11
+```
+
+**Flag explanations:**
+
+| Flag | Meaning |
+|------|---------|
+| `--friday-mode` | Tells the tool to forecast all three days at once |
+| `--whub-onpeak-weekend` | The Weekend on-peak power price (HE08–HE23 Sat & Sun) |
+| `--whub-offpeak-weekend` | The Weekend off-peak power price (overnight & early morning Sat & Sun) |
+| `--whub-onpeak-monday` | Monday's on-peak power price (HE08–HE23 Monday) |
+| `--whub-offpeak-monday` | Monday's off-peak power price (HE01–HE07/HE24 Monday) |
+| `--gas-price` | One gas price covering all three days |
+| `--date` | The Saturday date (first delivery day of the weekend package) |
+
+> **Note for Windows users:** Use the `^` character (caret) to continue a command across multiple lines in Command Prompt, or type the whole command on a single line.
+
+### Refreshing Forecasts on Saturday and Sunday
+
+On Saturday morning, you can **re-run the forecast for Sunday** using the normal (non-Friday) command. This gives a better Sunday forecast because it now uses **real Saturday prices** as D-1 data instead of estimates:
+
+```
+python cli.py forecast --whub-onpeak 32.00 --whub-offpeak 22.50 --gas 3.25 --date 2026-04-12
+```
+
+On Sunday morning, do the same to refresh the Monday forecast using real Sunday actuals:
+
+```
+python cli.py forecast --whub-onpeak 46.00 --whub-offpeak 28.00 --gas 3.25 --date 2026-04-13
+```
+
+### Why Sunday and Monday Forecasts Have Wider Confidence Intervals
+
+On Friday, we don't yet know Saturday's actual prices. Sunday's forecast uses Saturday's **predicted** prices as a stand-in for the real D-1 data. This adds uncertainty, which is why the confidence bands are automatically widened:
+
+| Forecast Day | CI Widening | Reason |
+|--------------|-------------|--------|
+| Saturday | None (standard) | Uses real Friday actuals as D-1 |
+| Sunday | +15% wider | Uses Saturday forecast (synthetic) as D-1 |
+| Monday | +25% wider | Uses Sunday forecast (double-synthetic) as D-1 |
+
+After running the Saturday refresh on Saturday morning, the Sunday forecast will have standard (non-widened) confidence intervals because it now uses real Saturday actuals.
+
+---
+
 ## Section 3: Daily Usage (09:00 EPT)
 
 ### Getting Your Input Values

@@ -44,11 +44,16 @@ class UserInputExpander:
                     target_date.year, target_date.month, target_date.day, 0, 0
                 ) + pd.Timedelta(days=1)
                 onpeak = False  # HE24 is always off-peak
+                # WHub price assignment: HE24 is off-peak (outside HE08-HE23 block)
+                whub_onpeak_hour = False
             else:
                 dt = pd.Timestamp(target_date.year, target_date.month, target_date.day, he, 0)
                 onpeak = self.cal.is_onpeak(dt)
+                # WHub price assignment uses hour block only (HE08-HE23), not NERC definition.
+                # Weekends and holidays also get on-peak WHub price for HE08-HE23.
+                whub_onpeak_hour = (8 <= he <= 23)
 
-            whub = whub_onpeak if onpeak else whub_offpeak
+            whub = whub_onpeak if whub_onpeak_hour else whub_offpeak
             implied_hr = whub / gas_price if gas_price > 0 else 0.0
             spark_gas = whub - (self.HEAT_RATE_GAS * gas_price)
             spark_old = whub - (self.HEAT_RATE_OLD * gas_price)

@@ -28,12 +28,12 @@ def cli():
 
 
 @cli.command()
-@click.option("--whub-onpeak", "-op", type=float, required=True,
+@click.option("--whub-onpeak", "-op", type=float, default=None,
               help="Expected D+1 Western Hub DA On-Peak price ($/MWh). "
                    "On-Peak = HE08-HE23 Mon-Fri excluding NERC holidays.")
-@click.option("--whub-offpeak", "-fp", type=float, required=True,
+@click.option("--whub-offpeak", "-fp", type=float, default=None,
               help="Expected D+1 Western Hub DA Off-Peak price ($/MWh).")
-@click.option("--gas", "-g", type=float, required=True,
+@click.option("--gas", "-g", type=float, default=None,
               help="Expected D+1 Transco Zone 5 gas price ($/MMBtu).")
 @click.option("--date", "-d", type=click.DateTime(formats=["%Y-%m-%d"]), default=None,
               help="Target forecast date (default: tomorrow in EPT). Format: YYYY-MM-DD.")
@@ -43,7 +43,21 @@ def cli():
               default="table", show_default=True, help="Output format.")
 @click.option("--output-file", "-f", type=click.Path(), default=None,
               help="Save output to file (default: print to console).")
-def forecast(whub_onpeak, whub_offpeak, gas, date, model_path, output, output_file):
+@click.option("--friday-mode", is_flag=True, default=False,
+              help="Friday 3-day mode: forecast Saturday, Sunday, and Monday at once.")
+@click.option("--whub-onpeak-weekend", type=float, default=None,
+              help="Weekend WHub DA On-Peak price ($/MWh) for HE08-HE23 Sat+Sun.")
+@click.option("--whub-offpeak-weekend", type=float, default=None,
+              help="Weekend WHub DA Off-Peak price ($/MWh) for HE01-HE07,HE24 Sat+Sun.")
+@click.option("--whub-onpeak-monday", type=float, default=None,
+              help="Monday WHub DA On-Peak price ($/MWh) for HE08-HE23 Monday.")
+@click.option("--whub-offpeak-monday", type=float, default=None,
+              help="Monday WHub DA Off-Peak price ($/MWh) for HE01-HE07,HE24 Monday.")
+@click.option("--gas-price", type=float, default=None,
+              help="Alias for --gas. Transco Zone 5 gas price ($/MMBtu).")
+def forecast(whub_onpeak, whub_offpeak, gas, date, model_path, output, output_file,
+             friday_mode, whub_onpeak_weekend, whub_offpeak_weekend,
+             whub_onpeak_monday, whub_offpeak_monday, gas_price):
     """Generate 24-hour PJM SOUTH DA LMP forecast.
 
     Provide three market inputs available each morning:
@@ -54,10 +68,53 @@ def forecast(whub_onpeak, whub_offpeak, gas, date, model_path, output, output_fi
     --gas: Transco Zone 5 daily gas price
 
     \b
+    For Friday 3-day mode (Sat/Sun/Mon forecast), use --friday-mode with
+    separate weekend and Monday WHub prices.
+
+    \b
     Example:
       python cli.py forecast --whub-onpeak 45.50 --whub-offpeak 28.75 --gas 3.42
+
+    \b
+    Friday mode example:
+      python cli.py forecast --friday-mode \\
+        --whub-onpeak-weekend 32.00 --whub-offpeak-weekend 22.50 \\
+        --whub-onpeak-monday 46.00 --whub-offpeak-monday 28.00 \\
+        --gas-price 3.25 --date 2026-04-11
     """
     from src.forecast.engine import ForecastEngine
+
+    # --gas-price is an alias for --gas; merge them
+    effective_gas = gas_price if gas_price is not None else gas
+    if effective_gas is None:
+        raise click.UsageError("Missing required option '--gas' / '--gas-price'.")
+
+    if friday_mode:
+        # Validate all four weekend/monday prices
+        missing = []
+        if whub_onpeak_weekend is None:
+            missing.append("--whub-onpeak-weekend")
+        if whub_offpeak_weekend is None:
+            missing.append("--whub-offpeak-weekend")
+        if whub_onpeak_monday is None:
+            missing.append("--whub-onpeak-monday")
+        if whub_offpeak_monday is None:
+            missing.append("--whub-offpeak-monday")
+        if missing:
+            raise click.UsageError(
+                f"--friday-mode requires: {', '.join(missing)}"
+            )
+    else:
+        # Normal single-day mode: require standard on/off-peak
+        if whub_onpeak is None or whub_offpeak is None:
+            missing = []
+            if whub_onpeak is None:
+                missing.append("--whub-onpeak")
+            if whub_offpeak is None:
+                missing.append("--whub-offpeak")
+            raise click.UsageError(
+                f"Missing required option(s): {', '.join(missing)}"
+            )
 
     if date is None:
         import pytz
@@ -69,6 +126,22 @@ def forecast(whub_onpeak, whub_offpeak, gas, date, model_path, output, output_fi
     else:
         target_date = pd.Timestamp(date)
 
+    engine = ForecastEngine(config_path=CONFIG_PATH, model_path=model_path)
+
+    if friday_mode:
+        _run_friday_mode(
+            engine=engine,
+            saturday_date=target_date,
+            whub_onpeak_weekend=whub_onpeak_weekend,
+            whub_offpeak_weekend=whub_offpeak_weekend,
+            whub_onpeak_monday=whub_onpeak_monday,
+            whub_offpeak_monday=whub_offpeak_monday,
+            gas=effective_gas,
+            output=output,
+            output_file=output_file,
+        )
+        return
+
     click.echo(f"\n{'='*60}")
     click.echo(f"  PJM SOUTH DA LMP FORECAST")
     click.echo(f"  Target Date: {target_date.strftime('%A, %B %d, %Y')}")
@@ -76,17 +149,15 @@ def forecast(whub_onpeak, whub_offpeak, gas, date, model_path, output, output_fi
     click.echo(f"  Inputs:")
     click.echo(f"    WHub On-Peak:  ${whub_onpeak:.2f}/MWh")
     click.echo(f"    WHub Off-Peak: ${whub_offpeak:.2f}/MWh")
-    click.echo(f"    Gas (Z6 NNY):  ${gas:.3f}/MMBtu")
+    click.echo(f"    Gas (Transco Z5):  ${effective_gas:.3f}/MMBtu")
     click.echo(f"{'='*60}\n")
-
-    engine = ForecastEngine(config_path=CONFIG_PATH, model_path=model_path)
 
     try:
         result = engine.forecast(
             target_date=target_date,
             whub_onpeak=whub_onpeak,
             whub_offpeak=whub_offpeak,
-            gas_price=gas,
+            gas_price=effective_gas,
         )
 
         if output == "table":
@@ -127,6 +198,121 @@ def forecast(whub_onpeak, whub_offpeak, gas, date, model_path, output, output_fi
     except Exception as e:
         click.echo(f"\n❌ Forecast error: {e}", err=True)
         logger.exception("Forecast failed")
+        sys.exit(1)
+
+
+def _run_friday_mode(
+    engine,
+    saturday_date: pd.Timestamp,
+    whub_onpeak_weekend: float,
+    whub_offpeak_weekend: float,
+    whub_onpeak_monday: float,
+    whub_offpeak_monday: float,
+    gas: float,
+    output: str,
+    output_file,
+) -> None:
+    """Execute Friday 3-day forecast and print results."""
+    sunday_date = saturday_date + pd.Timedelta(days=1)
+    monday_date = saturday_date + pd.Timedelta(days=2)
+
+    click.echo(f"\n{'═'*50}")
+    click.echo(f"  PJM SOUTH DA LMP Forecast — Friday 3-Day Mode")
+    click.echo(f"{'═'*50}")
+    click.echo(f"  Gas (Transco Z5):  ${gas:.3f}/MMBtu (Sat/Sun/Mon package)")
+    click.echo("")
+
+    try:
+        results = engine.forecast_friday_mode(
+            saturday_date=saturday_date,
+            whub_onpeak_weekend=whub_onpeak_weekend,
+            whub_offpeak_weekend=whub_offpeak_weekend,
+            whub_onpeak_monday=whub_onpeak_monday,
+            whub_offpeak_monday=whub_offpeak_monday,
+            gas_price=gas,
+        )
+
+        day_configs = [
+            ("saturday", saturday_date, "Saturday", whub_onpeak_weekend, whub_offpeak_weekend,
+             "Weekend", "Friday actuals"),
+            ("sunday", sunday_date, "Sunday", whub_onpeak_weekend, whub_offpeak_weekend,
+             "Weekend", "Saturday forecast (synthetic) — CIs widened 15%"),
+            ("monday", monday_date, "Monday", whub_onpeak_monday, whub_offpeak_monday,
+             "Monday", "Sunday forecast (synthetic) — CIs widened 25%"),
+        ]
+
+        day_avgs = {}
+        highest_price = None
+        highest_label = ""
+        all_spike_alerts = []
+
+        if output == "csv" or output == "json":
+            # Combine all three days with a 'Day' column
+            combined = []
+            for key, dt, label, _, _, _, _ in day_configs:
+                df = results[key].copy()
+                df.insert(0, "Day", label)
+                df.insert(1, "Date", dt.strftime("%Y-%m-%d"))
+                combined.append(df)
+            all_df = pd.concat(combined, ignore_index=True)
+            if output == "csv":
+                out = all_df.to_csv(index=False)
+            else:
+                out = all_df.to_json(orient="records", indent=2)
+            if output_file:
+                Path(output_file).write_text(out)
+                click.echo(f"Forecast saved to {output_file}")
+            else:
+                click.echo(out)
+            return
+
+        for key, dt, label, onpeak, offpeak, price_label, d1_label in day_configs:
+            day_result = results[key]
+            click.echo(f"📅 {label.upper()}, {dt.strftime('%B %d, %Y')}")
+            click.echo(f"  WHub {price_label} On-Peak (HE08-HE23):   ${onpeak:.2f}/MWh")
+            click.echo(f"  WHub {price_label} Off-Peak (HE01-07,24): ${offpeak:.2f}/MWh")
+            click.echo(f"  D-1 Lags: {d1_label}")
+            click.echo(f"{'─'*51}")
+
+            _print_forecast_table(day_result, dt)
+
+            onpeak_mask = day_result["Is_OnPeak"] == "On-Peak"
+            offpeak_mask = ~onpeak_mask
+            op_avg = day_result.loc[onpeak_mask, "Forecast_LMP"].mean() if onpeak_mask.any() else 0.0
+            fp_avg = day_result.loc[offpeak_mask, "Forecast_LMP"].mean() if offpeak_mask.any() else 0.0
+            day_avg = day_result["Forecast_LMP"].mean()
+            day_avgs[label] = day_avg
+            click.echo(f"  On-Peak Avg: ${op_avg:.2f}  |  Off-Peak Avg: ${fp_avg:.2f}")
+            click.echo("")
+
+            # Track highest hour across all three days
+            max_idx = day_result["Forecast_LMP"].idxmax()
+            max_price = day_result.loc[max_idx, "Forecast_LMP"]
+            max_hour = day_result.loc[max_idx, "Hour_EPT"]
+            if highest_price is None or max_price > highest_price:
+                highest_price = max_price
+                highest_label = f"{label} {max_hour}"
+
+            # Collect spike alerts
+            spikes = day_result[day_result["Spike_Risk"].isin(["High", "Very High"])]
+            for _, row in spikes.iterrows():
+                all_spike_alerts.append(f"{label} {row['Hour_EPT']} ({row['Spike_Risk']})")
+
+        click.echo(f"{'═'*50}")
+        click.echo(f"72-Hour Summary:")
+        for label in ["Saturday", "Sunday", "Monday"]:
+            if label in day_avgs:
+                click.echo(f"  {label} Avg:   ${day_avgs[label]:.2f}/MWh")
+        click.echo(f"  Highest Hour:   {highest_label} (${highest_price:.2f})")
+        if all_spike_alerts:
+            click.echo(f"  Spike Alerts:   {', '.join(all_spike_alerts)}")
+        else:
+            click.echo(f"  Spike Alerts:   None")
+        click.echo("")
+
+    except Exception as e:
+        click.echo(f"\n❌ Friday mode forecast error: {e}", err=True)
+        logger.exception("Friday mode forecast failed")
         sys.exit(1)
 
 
