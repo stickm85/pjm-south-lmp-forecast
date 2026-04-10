@@ -194,23 +194,6 @@ class TestPJMNewMethods:
         assert (df["marginal_emission_rate_lbs_mwh"] >= 400).all()
         assert (df["marginal_emission_rate_lbs_mwh"] <= 2600).all()
 
-    def test_tx_ratings_schema(self):
-        """TX ratings mock should have date, tx_derate_flag, and derated_mw."""
-        from src.data.pjm_client import PJMClient
-        client = PJMClient()
-        df = client.fetch_tx_ratings("2024-01-01", "2024-01-31")
-        assert "date" in df.columns
-        assert "tx_derate_flag" in df.columns
-        assert "derated_mw" in df.columns
-        assert len(df) == 31
-
-    def test_tx_derate_flag_binary(self):
-        """TX de-rate flag should be binary (0 or 1)."""
-        from src.data.pjm_client import PJMClient
-        client = PJMClient()
-        df = client.fetch_tx_ratings("2024-01-01", "2024-12-31")
-        assert df["tx_derate_flag"].isin([0, 1]).all()
-
     def test_instantaneous_load_schema(self):
         """Instantaneous load mock should have datetime and instantaneous_load_mw."""
         from src.data.pjm_client import PJMClient
@@ -639,24 +622,6 @@ class TestEIAClient:
         df = client.fetch_henry_hub_spot("2024-01-01", "2024-12-31")
         assert (df["price"] >= 1.50).all()
         assert (df["price"] <= 8.00).all()
-
-    def test_wholesale_power_schema(self):
-        """Wholesale power mock should have date, da_price, rt_price columns."""
-        from src.data.eia_client import EIAClient
-        client = EIAClient()
-        df = client.fetch_wholesale_power("2024-01-01", "2024-01-31")
-        assert "date" in df.columns
-        assert "da_price" in df.columns
-        assert "rt_price" in df.columns
-        assert len(df) == 31
-
-    def test_wholesale_power_price_range(self):
-        """Wholesale power price should be in a realistic range."""
-        from src.data.eia_client import EIAClient
-        client = EIAClient()
-        df = client.fetch_wholesale_power("2024-01-01", "2024-12-31")
-        assert (df["da_price"] >= 15.0).all()
-        assert (df["da_price"] <= 100.0).all()
 
     def test_gas_storage_schema(self):
         """Gas storage mock should have date, storage_bcf, storage_delta_bcf columns."""

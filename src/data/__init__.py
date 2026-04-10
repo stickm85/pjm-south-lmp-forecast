@@ -4,7 +4,6 @@ from .weather_client import WeatherClient
 from .outage_client import OutageClient
 from .iso_client import ISOClient
 from .capacity_client import CapacityClient
-from .market_client import MarketClient
 from .calendar_utils import CalendarUtils
 from .mock_data import MockDataGenerator
 
@@ -15,7 +14,6 @@ __all__ = [
     "OutageClient",
     "ISOClient",
     "CapacityClient",
-    "MarketClient",
     "CalendarUtils",
     "MockDataGenerator",
 ]

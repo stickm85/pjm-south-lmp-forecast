@@ -75,50 +75,6 @@ class EIAClient:
             logger.warning(f"EIA Henry Hub fetch failed: {e} — using mock")
             return self._mock.generate_henry_hub_spot(start_date, end_date)
 
-    def fetch_wholesale_power(self, start_date, end_date, hub: str = "PJM") -> pd.DataFrame:
-        """Fetch daily wholesale electricity prices for PJM region.
-
-        Not used in the forecast pipeline — SOUTH/WHub LMPs from PJM DataMiner are
-        more granular and node-specific.
-
-        Endpoint: https://api.eia.gov/v2/electricity/rto/daily-region-data/data/
-        Includes PJM region day-ahead and real-time average prices. Free, daily.
-
-        Returns DataFrame with columns: date, da_price, rt_price
-        """
-        if not self._has_api_key():
-            logger.warning("No EIA API key configured — using mock data for wholesale power")
-            return self._mock.generate_wholesale_power(start_date, end_date, hub)
-        try:
-            params = {
-                "api_key": self.api_key,
-                "frequency": "daily",
-                "data[0]": "value",
-                "facets[respondent][]": hub,
-                "start": pd.Timestamp(start_date).strftime("%Y-%m-%d"),
-                "end": pd.Timestamp(end_date).strftime("%Y-%m-%d"),
-                "sort[0][column]": "period",
-                "sort[0][direction]": "asc",
-            }
-            url = f"{self.api_base}/electricity/rto/daily-region-data/data/"
-            resp = requests.get(url, params=params, timeout=30)
-            resp.raise_for_status()
-            data = resp.json().get("response", {}).get("data", [])
-            if not data:
-                logger.warning("EIA returned no data for wholesale power — using mock")
-                return self._mock.generate_wholesale_power(start_date, end_date, hub)
-            df = pd.DataFrame(data)
-            df["date"] = pd.to_datetime(df["period"])
-            df["price"] = pd.to_numeric(df.get("value", np.nan), errors="coerce")
-            # Approximate da/rt split from single price series
-            result = df.groupby("date")["price"].mean().reset_index()
-            result = result.rename(columns={"price": "da_price"})
-            result["rt_price"] = result["da_price"]
-            return result[["date", "da_price", "rt_price"]].dropna().reset_index(drop=True)
-        except Exception as e:
-            logger.warning(f"EIA wholesale power fetch failed: {e} — using mock")
-            return self._mock.generate_wholesale_power(start_date, end_date, hub)
-
     def fetch_gas_storage(self, start_date, end_date) -> pd.DataFrame:
         """Fetch weekly working gas in underground storage (Lower 48, Bcf).
 
@@ -181,26 +137,6 @@ class EIAMockData:
         price = np.maximum(1.50, base + seasonal + self.rng.normal(0, 0.2, n))
         price = np.minimum(8.00, price)
         return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
-
-    def generate_wholesale_power(self, start_date, end_date, hub: str = "PJM") -> pd.DataFrame:
-        """Daily wholesale electricity prices for PJM region ($/MWh).
-
-        Seasonal pattern with summer and winter peaks.
-        Returns DataFrame with columns: date, da_price, rt_price
-        """
-        idx = pd.date_range(pd.Timestamp(start_date), pd.Timestamp(end_date), freq="D")
-        n = len(idx)
-        base = 40.0
-        summer_peak = 12.0 * np.sin(2 * np.pi * (idx.dayofyear - 80) / 365)
-        winter_peak = 6.0 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
-        da_price = np.clip(base + summer_peak + winter_peak + self.rng.normal(0, 3.0, n), 20.0, 90.0)
-        rt_price = da_price + self.rng.normal(0, 2.0, n)
-        rt_price = np.clip(rt_price, 15.0, 100.0)
-        return pd.DataFrame({
-            "date": idx,
-            "da_price": np.round(da_price, 2),
-            "rt_price": np.round(rt_price, 2),
-        })
 
     def generate_gas_storage(self, start_date, end_date) -> pd.DataFrame:
         """Weekly working gas in underground storage (Lower 48, Bcf).

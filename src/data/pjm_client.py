@@ -98,23 +98,6 @@ class PJMClient:
             return self._mock.generate_fuel_mix(start_date, end_date)
         raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
 
-    def fetch_virtual_bids(self, start_date, end_date) -> pd.DataFrame:
-        """Fetch virtual bid volume at SOUTH node.
-
-        Deprecated: removed from pipeline — DA-RT spread (Basis_D1) is the preferred
-        proxy for virtual bidding sentiment. Virtual transaction data is NOT public in
-        PJM DataMiner 2.
-
-        NOTE: Individual participant bids are confidential and held in settlement/billing
-        systems. This method returns mock data only and will never have a real API
-        source. In production, the DA-RT spread (available as Basis_D1 via
-        LagFeatureBuilder) serves as the actionable proxy for virtual bidding
-        activity and sentiment.
-        """
-        if not self._has_api_key():
-            return self._mock.generate_virtual_bids(start_date, end_date)
-        raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
-
     def fetch_ancillary_prices(self, start_date, end_date) -> pd.DataFrame:
         """Fetch ancillary service market clearing prices (RegA, RegD, Sync Reserve).
 
@@ -142,24 +125,6 @@ class PJMClient:
         if not self._has_api_key():
             logger.warning("No PJM API key configured — using mock data for emission rates")
             return self._mock.generate_emission_rates(start_date, end_date)
-        raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
-
-    def fetch_tx_ratings(self, start_date, end_date) -> pd.DataFrame:
-        """Fetch transmission line thermal ratings and de-rate flags.
-
-        Not used in pipeline — transmission_constraints (binding constraints with shadow
-        prices) is preferred.
-
-        Source: OASIS thermal ratings feed.
-        De-rated transmission corridors into SOUTH increase congestion
-        component of LMP, especially during hot weather.
-
-        Returns DataFrame with columns:
-            date, tx_derate_flag, derated_mw
-        """
-        if not self._has_api_key():
-            logger.warning("No PJM API key configured — using mock data for tx ratings")
-            return self._mock.generate_tx_ratings(start_date, end_date)
         raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
 
     def fetch_instantaneous_load(self, start_date, end_date) -> pd.DataFrame:

@@ -32,13 +32,5 @@ class CapacityClient:
         df = self._mock.generate_installed_capacity(start_date, end_date)
         return df[["date", "wind_capacity_mw"]]
 
-    def fetch_installed_bess(self, start_date, end_date) -> pd.DataFrame:
-        """Fetch quarterly BESS capacity (MW).
-
-        Returns DataFrame with columns: date, bess_capacity_mw
-        """
-        logger.debug("Fetching BESS capacity (using mock)")
-        return self._mock.generate_bess_capacity(start_date, end_date)
-
 
 from .mock_data import MockDataGenerator as MockFallback

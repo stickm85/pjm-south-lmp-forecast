@@ -48,12 +48,5 @@ class WeatherClient:
             logger.warning(f"Humidity fetch failed for {city}: {e} — using mock")
             return self._mock.generate_humidity_forecast(start_date, end_date, city)
 
-    def fetch_wind_cloud(self, start_date, end_date, city: str) -> pd.DataFrame:
-        """Fetch hourly wind speed and cloud cover for the given city.
-
-        Returns DataFrame with columns: datetime, wind_speed_mph, cloud_cover_pct, city
-        """
-        return self._mock.generate_wind_cloud_forecast(start_date, end_date, city)
-
 
 from .mock_data import MockDataGenerator as MockFallback
