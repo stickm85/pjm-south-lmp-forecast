@@ -33,6 +33,11 @@ class MarketClient:
     def fetch_emergency_logs(self, start_date, end_date) -> pd.DataFrame:
         """Fetch daily Emergency Event Alert (EEA) flags.
 
+        NOTE: EEA events are NOT available via PJM DataMiner 2 API. They are
+        announced via PJM's emergency procedures alerts page. In production, these
+        would be manually entered flags or scraped from PJM's emergency procedures
+        page. This method returns mock data as fallback.
+
         Returns DataFrame with columns: date, eea_flag
         """
         logger.debug("Fetching emergency logs (using mock)")
@@ -40,6 +45,11 @@ class MarketClient:
 
     def fetch_demand_response(self, start_date, end_date) -> pd.DataFrame:
         """Fetch daily demand response event flags and MW.
+
+        NOTE: DR events are NOT available via PJM DataMiner 2 API. Demand response
+        data is held in PJM settlement and billing systems. In production, these
+        would be manually entered flags based on DR event notifications issued by
+        PJM operations. This method returns mock data as fallback.
 
         Returns DataFrame with columns: date, dr_event_flag, dr_mw
         """

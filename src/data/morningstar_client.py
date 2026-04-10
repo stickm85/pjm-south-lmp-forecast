@@ -86,6 +86,43 @@ class MorningstarClient:
             return self._mock.generate_z5_gas_forward(start_date, end_date)
         raise NotImplementedError("Set morningstar.api_key in config/settings.yaml")
 
+    def fetch_dominion_south(
+        self,
+        start_date: Union[str, pd.Timestamp],
+        end_date: Union[str, pd.Timestamp],
+    ) -> pd.DataFrame:
+        """Fetch Dominion South Point daily gas spot price ($/MMBtu).
+
+        Dominion South is the Appalachian production-area index.
+        Some generators in western Virginia and the Allegheny region
+        take gas delivery here. It typically trades at a discount to
+        Transco Z5 due to pipeline basis and Appalachian production surplus.
+
+        Returns DataFrame with columns: date, price
+        """
+        if not self._has_api_key():
+            logger.warning("No Morningstar API key configured — using mock data for Dominion South")
+            return self._mock.generate_dominion_south(start_date, end_date)
+        raise NotImplementedError("Set morningstar.api_key in config/settings.yaml")
+
+    def fetch_tetco_m3(
+        self,
+        start_date: Union[str, pd.Timestamp],
+        end_date: Union[str, pd.Timestamp],
+    ) -> pd.DataFrame:
+        """Fetch TETCO M3 daily gas spot price ($/MMBtu).
+
+        Texas Eastern M3 serves the Philadelphia/New Jersey corridor.
+        TETCO M3 vs Transco Z5 spread widens during cold weather
+        when pipeline constraints create regional pricing divergence.
+
+        Returns DataFrame with columns: date, price
+        """
+        if not self._has_api_key():
+            logger.warning("No Morningstar API key configured — using mock data for TETCO M3")
+            return self._mock.generate_tetco_m3(start_date, end_date)
+        raise NotImplementedError("Set morningstar.api_key in config/settings.yaml")
+
 
 class MorningstarMockData:
     """Mock data generator for Morningstar price datasets.
@@ -158,4 +195,37 @@ class MorningstarMockData:
         # Prompt-month is usually slightly above spot (contango)
         contango = np.abs(self.rng.normal(0.15, 0.10, len(idx)))
         price = np.maximum(2.0, z5_base + contango)
+        return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
+
+    def generate_dominion_south(
+        self,
+        start_date: Union[str, pd.Timestamp],
+        end_date: Union[str, pd.Timestamp],
+    ) -> pd.DataFrame:
+        """Generate Dominion South Point daily gas spot price ($/MMBtu).
+
+        Tracks Transco Z5 with a -$0.30 to -$0.80 Appalachian discount.
+        Range: $1.50-$7.50/MMBtu.
+        """
+        idx = self._daily_index(start_date, end_date)
+        z5_base = self._gas_base(idx, base=3.5)
+        discount = self.rng.uniform(-0.80, -0.30, len(idx))
+        price = np.clip(z5_base + discount, 1.50, 7.50)
+        return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
+
+    def generate_tetco_m3(
+        self,
+        start_date: Union[str, pd.Timestamp],
+        end_date: Union[str, pd.Timestamp],
+    ) -> pd.DataFrame:
+        """Generate TETCO M3 daily gas spot price ($/MMBtu).
+
+        Tracks Transco Z5 with ±$0.40 spread, wider in winter.
+        Range: $2.00-$8.50/MMBtu.
+        """
+        idx = self._daily_index(start_date, end_date)
+        z5_base = self._gas_base(idx, base=3.5)
+        winter_factor = np.maximum(0, np.sin(2 * np.pi * (idx.dayofyear - 355) / 365))
+        spread = self.rng.uniform(-0.40, 0.40, len(idx)) * (1 + winter_factor)
+        price = np.clip(z5_base + spread, 2.00, 8.50)
         return pd.DataFrame({"date": idx, "price": np.round(price, 3)})

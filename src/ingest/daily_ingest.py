@@ -58,8 +58,10 @@ class DailyIngestPipeline:
 
         from ..data.openmeteo_client import OpenMeteoClient
         from ..data.morningstar_client import MorningstarClient
+        from ..data.eia_client import EIAClient
         self.openmeteo = OpenMeteoClient()
         self.morningstar = MorningstarClient(config_path)
+        self.eia = EIAClient(config_path)
 
     def run(
         self,
@@ -118,6 +120,14 @@ class DailyIngestPipeline:
             "emission_rates": lambda: self.pjm.fetch_emission_rates(start, end),
             "tx_ratings": lambda: self.pjm.fetch_tx_ratings(start, end),
             "instantaneous_load": lambda: self.pjm.fetch_instantaneous_load(start, end),
+            "transmission_constraints": lambda: self.pjm.fetch_transmission_constraints(start, end),
+            # New Morningstar feeds
+            "dominion_south": lambda: self.morningstar.fetch_dominion_south(start, end),
+            "tetco_m3": lambda: self.morningstar.fetch_tetco_m3(start, end),
+            # EIA feeds
+            "eia_henry_hub": lambda: self.eia.fetch_henry_hub_spot(start, end),
+            "eia_wholesale_power": lambda: self.eia.fetch_wholesale_power(start, end),
+            "gas_storage": lambda: self.eia.fetch_gas_storage(start, end),
         }
 
         for source_name, fetch_fn in fetch_map.items():

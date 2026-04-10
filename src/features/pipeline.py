@@ -19,7 +19,7 @@ from ..data.mock_data import MockDataGenerator
 
 
 class FeaturePipeline:
-    """Assembles all ~51 features for 24-hour LMP forecast.
+    """Assembles all ~58 features for 24-hour LMP forecast.
 
     Usage:
         pipeline = FeaturePipeline()
@@ -185,7 +185,8 @@ class FeaturePipeline:
             )),
         )
 
-        # 10. Enhanced features (Open-Meteo, Morningstar, PJM ancillary/emissions)
+        # 10. Enhanced features (Open-Meteo, Morningstar, PJM ancillary/emissions,
+        #     transmission constraints, EIA gas storage, regional gas spreads)
         from ..data.openmeteo_client import OpenMeteoMockData
         openmeteo_mock = OpenMeteoMockData()
         openmeteo_data = historical_data.get(
@@ -229,6 +230,30 @@ class FeaturePipeline:
             emission_rates=historical_data.get(
                 "emission_rates",
                 self.mock.generate_emission_rates(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            transmission_constraints=historical_data.get(
+                "transmission_constraints",
+                self.mock.generate_transmission_constraints(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            gas_storage=historical_data.get(
+                "gas_storage",
+                self.mock.generate_gas_storage(
+                    target_date - pd.Timedelta(days=90), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            dominion_south=historical_data.get(
+                "dominion_south",
+                self.mock.generate_dominion_south(
+                    target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
+                ),
+            ),
+            tetco_m3=historical_data.get(
+                "tetco_m3",
+                self.mock.generate_tetco_m3(
                     target_date - pd.Timedelta(days=7), target_date - pd.Timedelta(days=1)
                 ),
             ),

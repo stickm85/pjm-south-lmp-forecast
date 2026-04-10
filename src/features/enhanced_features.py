@@ -1,4 +1,4 @@
-"""Enhanced feature engineering using new Open-Meteo, Morningstar, and PJM data sources."""
+"""Enhanced feature engineering using new Open-Meteo, Morningstar, PJM, and EIA data sources."""
 
 import pandas as pd
 import numpy as np
@@ -10,9 +10,23 @@ logger = logging.getLogger(__name__)
 # Approximate installed solar capacity in PJM SOUTH (MW) — updated quarterly from PJM
 SOUTH_INSTALLED_SOLAR_MW = 4500.0
 
+# Simplified 5-year average storage curve by week-of-year (Bcf).
+# Used when historical 5-year EIA average is not available.
+# Peaks ~week 43 (late Oct, ~3,800 Bcf), troughs ~week 12 (late Mar, ~1,700 Bcf).
+_STORAGE_5YR_AVG_BASE = 2750.0
+_STORAGE_5YR_AVG_AMP = 1050.0
+_STORAGE_5YR_AVG_PHASE = 209  # day-of-year offset so sin peaks at doy 300 (late October)
+
+
+def _storage_5yr_avg(doy: int) -> float:
+    """Return simplified 5-year average storage (Bcf) for a given day-of-year."""
+    return _STORAGE_5YR_AVG_BASE + _STORAGE_5YR_AVG_AMP * np.sin(
+        2 * np.pi * (doy - _STORAGE_5YR_AVG_PHASE) / 365
+    )
+
 
 class EnhancedFeatureBuilder:
-    """Builds 11 new derived features from Open-Meteo, Morningstar, and PJM data.
+    """Builds 18 new derived features from Open-Meteo, Morningstar, PJM, and EIA data.
 
     Feature list:
       1.  ghi_solar_estimate_h      — avg GHI × installed solar MW / 1000
@@ -26,6 +40,13 @@ class EnhancedFeatureBuilder:
       9.  marginal_emission_rate_d1 — avg hourly emission rate D-1 (lb CO2/MWh)
       10. pressure_gradient_12h     — pressure_h − pressure_{h-12}
       11. precip_flag               — 1 if precipitation > 0 else 0
+      12. n_binding_constraints_h   — count of binding constraints (D-1 same hour proxy)
+      13. max_shadow_price_d1       — max shadow price from D-1 (signals persistent congestion)
+      14. congestion_regime         — 1 if D-1 had >2 binding constraints with shadow > $10
+      15. storage_vs_5yr_avg        — current storage minus 5-year average for this week (Bcf)
+      16. storage_injection_rate    — storage_delta_bcf (positive=injection/bearish, negative=withdrawal/bullish)
+      17. dominion_z5_spread        — Dominion South price minus Transco Z5 price (usually negative)
+      18. tetco_z5_spread           — TETCO M3 price minus Transco Z5 price (positive = Mid-Atlantic premium)
     """
 
     def build(
@@ -40,23 +61,31 @@ class EnhancedFeatureBuilder:
         ancillary_prices: Optional[pd.DataFrame] = None,
         emission_rates: Optional[pd.DataFrame] = None,
         installed_solar_mw: float = SOUTH_INSTALLED_SOLAR_MW,
+        transmission_constraints: Optional[pd.DataFrame] = None,
+        gas_storage: Optional[pd.DataFrame] = None,
+        dominion_south: Optional[pd.DataFrame] = None,
+        tetco_m3: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
         """Build 24-row enhanced feature DataFrame for target_date.
 
         Args:
-            target_date:       Date to build features for.
-            openmeteo_data:    DataFrame from OpenMeteoClient (all cities, hourly).
-            columbia_gas:      DataFrame with columns [date, price] from Morningstar.
-            z5_spot:           Series, DataFrame, or float — Transco Z5 spot price D-1 ($/MMBtu).
-            z5_forward:        DataFrame with columns [date, price] — Z5 prompt-month.
-            whub_forward:      DataFrame with columns [date, price] — WHub prompt-month.
-            whub_spot_da:      WHub DA on-peak price (user input, $/MWh).
-            ancillary_prices:  DataFrame from PJMClient.fetch_ancillary_prices().
-            emission_rates:    DataFrame from PJMClient.fetch_emission_rates().
-            installed_solar_mw: Installed solar capacity in SOUTH zone (MW).
+            target_date:                Date to build features for.
+            openmeteo_data:             DataFrame from OpenMeteoClient (all cities, hourly).
+            columbia_gas:               DataFrame with columns [date, price] from Morningstar.
+            z5_spot:                    Series, DataFrame, or float — Transco Z5 spot price D-1 ($/MMBtu).
+            z5_forward:                 DataFrame with columns [date, price] — Z5 prompt-month.
+            whub_forward:               DataFrame with columns [date, price] — WHub prompt-month.
+            whub_spot_da:               WHub DA on-peak price (user input, $/MWh).
+            ancillary_prices:           DataFrame from PJMClient.fetch_ancillary_prices().
+            emission_rates:             DataFrame from PJMClient.fetch_emission_rates().
+            installed_solar_mw:         Installed solar capacity in SOUTH zone (MW).
+            transmission_constraints:   DataFrame from PJMClient.fetch_transmission_constraints().
+            gas_storage:                DataFrame from EIAClient.fetch_gas_storage().
+            dominion_south:             DataFrame with columns [date, price] — Dominion South gas.
+            tetco_m3:                   DataFrame with columns [date, price] — TETCO M3 gas.
 
         Returns:
-            DataFrame with 24 rows (one per hour_ending 1–24) and 11 new feature columns.
+            DataFrame with 24 rows (one per hour_ending 1–24) and 18 new feature columns.
         """
         target_date = pd.Timestamp(target_date)
         hours = list(range(1, 25))
@@ -78,6 +107,23 @@ class EnhancedFeatureBuilder:
         # ------------------------------------------------------------------
         result = self._add_pjm_ancillary_features(result, target_date, ancillary_prices,
                                                    emission_rates)
+
+        # ------------------------------------------------------------------
+        # Features 12, 13, 14 — from PJM transmission constraints
+        # ------------------------------------------------------------------
+        result = self._add_transmission_constraint_features(result, target_date,
+                                                             transmission_constraints)
+
+        # ------------------------------------------------------------------
+        # Features 15, 16 — from EIA gas storage
+        # ------------------------------------------------------------------
+        result = self._add_gas_storage_features(result, target_date, gas_storage)
+
+        # ------------------------------------------------------------------
+        # Features 17, 18 — from Morningstar Dominion South / TETCO M3
+        # ------------------------------------------------------------------
+        result = self._add_regional_gas_spread_features(result, target_date,
+                                                         dominion_south, tetco_m3, z5_spot)
 
         return result
 
@@ -252,6 +298,133 @@ class EnhancedFeatureBuilder:
                 result["marginal_emission_rate_d1"] = np.nan
         else:
             result["marginal_emission_rate_d1"] = np.nan
+
+        return result
+
+    def _add_transmission_constraint_features(
+        self,
+        result: pd.DataFrame,
+        target_date: pd.Timestamp,
+        transmission_constraints: Optional[pd.DataFrame],
+    ) -> pd.DataFrame:
+        """Add features 12, 13, 14 from PJM transmission constraint data.
+
+        Uses D-1 same-hour values as a proxy for the forecast day.
+        """
+        d1_date = target_date - pd.Timedelta(days=1)
+
+        if transmission_constraints is None or transmission_constraints.empty:
+            result["n_binding_constraints_h"] = np.nan
+            result["max_shadow_price_d1"] = np.nan
+            result["congestion_regime"] = np.nan
+            return result
+
+        tc = transmission_constraints.copy()
+        tc["datetime"] = pd.to_datetime(tc["datetime"])
+        d1_data = tc[tc["datetime"].dt.date == d1_date.date()].copy()
+
+        if d1_data.empty:
+            result["n_binding_constraints_h"] = np.nan
+            result["max_shadow_price_d1"] = np.nan
+            result["congestion_regime"] = np.nan
+            return result
+
+        # Feature 12: n_binding_constraints_h — D-1 same hour as proxy
+        d1_data = d1_data.copy()
+        d1_data["hour_ending"] = d1_data["datetime"].dt.hour
+        d1_data.loc[d1_data["hour_ending"] == 0, "hour_ending"] = 24
+
+        hourly = d1_data.groupby("hour_ending").agg(
+            n_binding=("n_binding_constraints", "mean"),
+            max_shadow=("max_shadow_price", "max"),
+        ).reset_index()
+
+        result = result.merge(hourly, on="hour_ending", how="left")
+        result["n_binding_constraints_h"] = result["n_binding"].round(1)
+        result.drop(columns=["n_binding"], inplace=True, errors="ignore")
+
+        # Feature 13: max_shadow_price_d1 — max shadow price across all D-1 hours
+        d1_max_shadow = float(d1_data["max_shadow_price"].max()) if "max_shadow_price" in d1_data else np.nan
+        result["max_shadow_price_d1"] = round(d1_max_shadow, 2) if pd.notna(d1_max_shadow) else np.nan
+        result.drop(columns=["max_shadow"], inplace=True, errors="ignore")
+
+        # Feature 14: congestion_regime — 1 if D-1 had >2 binding constraints with shadow > $10
+        if "n_binding_constraints" in d1_data.columns and "max_shadow_price" in d1_data.columns:
+            high_congestion = (
+                (d1_data["n_binding_constraints"] > 2) &
+                (d1_data["max_shadow_price"] > 10.0)
+            )
+            result["congestion_regime"] = int(high_congestion.any())
+        else:
+            result["congestion_regime"] = np.nan
+
+        return result
+
+    def _add_gas_storage_features(
+        self,
+        result: pd.DataFrame,
+        target_date: pd.Timestamp,
+        gas_storage: Optional[pd.DataFrame],
+    ) -> pd.DataFrame:
+        """Add features 15, 16 from EIA gas storage data."""
+
+        if gas_storage is None or gas_storage.empty:
+            result["storage_vs_5yr_avg"] = np.nan
+            result["storage_injection_rate"] = np.nan
+            return result
+
+        gs = gas_storage.copy()
+        gs["date"] = pd.to_datetime(gs["date"])
+        # Find the most recent weekly reading before target_date
+        past = gs[gs["date"] < target_date]
+        if past.empty:
+            result["storage_vs_5yr_avg"] = np.nan
+            result["storage_injection_rate"] = np.nan
+            return result
+
+        latest = past.iloc[-1]
+        storage = float(latest["storage_bcf"])
+        delta = float(latest["storage_delta_bcf"]) if "storage_delta_bcf" in latest else 0.0
+
+        # Feature 15: storage_vs_5yr_avg
+        doy = latest["date"].dayofyear if hasattr(latest["date"], "dayofyear") else target_date.dayofyear
+        avg = _storage_5yr_avg(doy)
+        result["storage_vs_5yr_avg"] = round(storage - avg, 1)
+
+        # Feature 16: storage_injection_rate (positive=injection/bearish, negative=withdrawal/bullish)
+        result["storage_injection_rate"] = round(delta, 1)
+
+        return result
+
+    def _add_regional_gas_spread_features(
+        self,
+        result: pd.DataFrame,
+        target_date: pd.Timestamp,
+        dominion_south: Optional[pd.DataFrame],
+        tetco_m3: Optional[pd.DataFrame],
+        z5_spot: Optional[Union[pd.Series, pd.DataFrame, float]],
+    ) -> pd.DataFrame:
+        """Add features 17, 18 from Dominion South and TETCO M3 vs Transco Z5 spreads."""
+
+        z5_price = (
+            float(z5_spot) if isinstance(z5_spot, (int, float))
+            else self._latest_price(z5_spot if isinstance(z5_spot, pd.DataFrame) else None,
+                                    target_date)
+        )
+
+        # Feature 17: dominion_z5_spread (usually negative, Appalachian discount)
+        dom_price = self._latest_price(dominion_south, target_date)
+        if dom_price is not None and z5_price is not None:
+            result["dominion_z5_spread"] = round(dom_price - z5_price, 3)
+        else:
+            result["dominion_z5_spread"] = np.nan
+
+        # Feature 18: tetco_z5_spread (positive = Mid-Atlantic premium)
+        tetco_price = self._latest_price(tetco_m3, target_date)
+        if tetco_price is not None and z5_price is not None:
+            result["tetco_z5_spread"] = round(tetco_price - z5_price, 3)
+        else:
+            result["tetco_z5_spread"] = np.nan
 
         return result
 

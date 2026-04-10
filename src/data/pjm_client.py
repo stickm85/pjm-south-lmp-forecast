@@ -99,7 +99,15 @@ class PJMClient:
         raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
 
     def fetch_virtual_bids(self, start_date, end_date) -> pd.DataFrame:
-        """Fetch virtual bid volume at SOUTH node."""
+        """Fetch virtual bid volume at SOUTH node.
+
+        NOTE: Virtual transaction data is NOT public in PJM DataMiner 2.
+        Individual participant bids are confidential and held in settlement/billing
+        systems. This method returns mock data only and will never have a real API
+        source. In production, the DA-RT spread (available as Basis_D1 via
+        LagFeatureBuilder) serves as the actionable proxy for virtual bidding
+        activity and sentiment.
+        """
         if not self._has_api_key():
             return self._mock.generate_virtual_bids(start_date, end_date)
         raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
@@ -161,6 +169,23 @@ class PJMClient:
         if not self._has_api_key():
             logger.warning("No PJM API key configured — using mock data for instantaneous load")
             return self._mock.generate_instantaneous_load(start_date, end_date)
+        raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
+
+    def fetch_transmission_constraints(self, start_date, end_date) -> pd.DataFrame:
+        """Fetch active binding transmission constraints with shadow prices.
+
+        Source: PJM DataMiner 2 `transmission_constraints` feed.
+        Binding constraints into SOUTH increase the congestion component of LMP.
+        Shadow prices quantify the $/MWh impact of each constraint.
+        This is the highest-value missing data source for predicting the congestion
+        component of SOUTH LMP (~30% of the SOUTH-WHub basis).
+
+        Returns DataFrame with columns:
+            datetime, n_binding_constraints, max_shadow_price, total_shadow_price
+        """
+        if not self._has_api_key():
+            logger.warning("No PJM API key configured — using mock data for transmission constraints")
+            return self._mock.generate_transmission_constraints(start_date, end_date)
         raise NotImplementedError("Set pjm.api_key in config/settings.yaml")
 
 
