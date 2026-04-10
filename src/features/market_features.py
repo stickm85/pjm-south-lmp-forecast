@@ -51,7 +51,13 @@ class MarketFeatureBuilder:
         return pd.DataFrame(rows)
 
     def _get_net_virtual(self, virtual_bids: pd.DataFrame, day: pd.Timestamp) -> float:
-        """Compute net virtual volume (INC - DEC) for a given day."""
+        """Compute net virtual volume (INC - DEC) for a given day.
+
+        NOTE: inc_dec_ratio / Net_Virtual_Volume_D1 is derived from mock data only.
+        Virtual transaction data is NOT public in PJM DataMiner 2. In production,
+        DA-RT spread (Basis_D1 from LagFeatureBuilder) is the actionable proxy for
+        virtual bidding sentiment and should be preferred.
+        """
         if virtual_bids is None or len(virtual_bids) == 0:
             return 0.0
         try:

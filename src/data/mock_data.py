@@ -353,6 +353,40 @@ class MockDataGenerator:
         df["instantaneous_load_mw"] = df["south_load_mw"] + self.rng.normal(0, 50, len(df))
         return df[["datetime", "instantaneous_load_mw"]]
 
+    def generate_transmission_constraints(self, start_date, end_date) -> pd.DataFrame:
+        """Hourly binding transmission constraint data with shadow prices.
+
+        Realistic patterns:
+        - ~15% of hours have at least one binding constraint
+        - Shadow prices $0-50/MWh, higher during peak/hot weather
+        - More constraints bind during on-peak hours (HE08-HE23)
+
+        Returns DataFrame with columns:
+            datetime, n_binding_constraints, max_shadow_price, total_shadow_price
+        """
+        idx = self._hourly_index(start_date, end_date)
+        n = len(idx)
+        # More binding constraints likely during on-peak hours
+        is_onpeak = ((idx.hour >= 7) & (idx.hour <= 22)).astype(float)
+        binding_prob = 0.10 + 0.10 * is_onpeak  # 10% off-peak, 20% on-peak
+        has_binding = self.rng.random(n) < binding_prob
+        n_binding = np.where(has_binding, self.rng.integers(1, 6, n), 0)
+        # Shadow prices higher on-peak and in summer
+        seasonal = 0.3 * np.sin(2 * np.pi * (idx.dayofyear - 80) / 365)
+        shadow_base = 15.0 + 10.0 * is_onpeak + 8.0 * seasonal
+        max_shadow = np.where(
+            n_binding > 0,
+            np.clip(shadow_base + self.rng.normal(0, 5.0, n), 1.0, 50.0),
+            0.0,
+        )
+        total_shadow = np.where(n_binding > 0, max_shadow * n_binding * 0.7, 0.0)
+        return pd.DataFrame({
+            "datetime": idx,
+            "n_binding_constraints": n_binding.astype(int),
+            "max_shadow_price": np.round(max_shadow, 2),
+            "total_shadow_price": np.round(total_shadow, 2),
+        })
+
     # ------------------------------------------------------------------
     # New Morningstar mock generators
     # ------------------------------------------------------------------
@@ -382,6 +416,66 @@ class MockDataGenerator:
         seasonal = 0.5 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
         contango = np.abs(self.rng.normal(0.15, 0.10, n))
         price = np.maximum(2.0, 3.5 + seasonal + contango + self.rng.normal(0, 0.2, n))
+        return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
+
+    def generate_gas_storage(self, start_date, end_date) -> pd.DataFrame:
+        """Weekly working gas in underground storage (Lower 48, Bcf).
+
+        Seasonal pattern:
+        - Injection season (Apr-Oct): storage builds ~1,500 Bcf total
+        - Withdrawal season (Nov-Mar): storage draws down ~1,500 Bcf total
+        - Range: 1,500-4,000 Bcf
+
+        Returns DataFrame with columns: date, storage_bcf, storage_delta_bcf
+        """
+        idx = pd.date_range(pd.Timestamp(start_date), pd.Timestamp(end_date), freq="W-FRI")
+        n = len(idx)
+        # Seasonal storage level: peaks in late Oct (~doy 300, ~3,800 Bcf),
+        # troughs in late Mar (~doy 90, ~1,700 Bcf).
+        # Phase offset 209 gives sin peak at doy 300.
+        doy = idx.dayofyear
+        storage = 2750.0 + 1050.0 * np.sin(2 * np.pi * (doy - 209) / 365)
+        storage = np.clip(storage + self.rng.normal(0, 80, n), 1500.0, 4000.0)
+        # Week-over-week change (positive = injection/bearish, negative = withdrawal/bullish)
+        delta = np.diff(storage, prepend=storage[0])
+        # Inject ~Apr-Oct (doy 90-300), withdraw Nov-Mar
+        return pd.DataFrame({
+            "date": idx,
+            "storage_bcf": np.round(storage, 1),
+            "storage_delta_bcf": np.round(delta, 1),
+        })
+
+    def generate_dominion_south(self, start_date, end_date) -> pd.DataFrame:
+        """Daily Dominion South Point gas spot price ($/MMBtu).
+
+        Tracks Transco Z5 with a -$0.30 to -$0.80 discount reflecting
+        Appalachian production surplus depressing local prices.
+        Range: $1.50-$7.50/MMBtu.
+        """
+        idx = self._daily_index(start_date, end_date)
+        n = len(idx)
+        seasonal = 0.5 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
+        z5_base = 3.5 + seasonal + self.rng.normal(0, 0.2, n)
+        # Appalachian discount: -$0.30 to -$0.80 below Z5
+        discount = self.rng.uniform(-0.80, -0.30, n)
+        price = np.clip(z5_base + discount, 1.50, 7.50)
+        return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
+
+    def generate_tetco_m3(self, start_date, end_date) -> pd.DataFrame:
+        """Daily TETCO M3 gas spot price ($/MMBtu).
+
+        Tracks Transco Z5 with ±$0.40 spread, wider in winter when
+        pipeline constraints create regional pricing divergence.
+        Range: $2.00-$8.50/MMBtu.
+        """
+        idx = self._daily_index(start_date, end_date)
+        n = len(idx)
+        seasonal = 0.5 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
+        z5_base = 3.5 + seasonal + self.rng.normal(0, 0.2, n)
+        # Winter spread widens (cold weather, pipeline constraints)
+        winter_factor = np.maximum(0, np.sin(2 * np.pi * (idx.dayofyear - 355) / 365))
+        spread = self.rng.uniform(-0.40, 0.40, n) * (1 + winter_factor)
+        price = np.clip(z5_base + spread, 2.00, 8.50)
         return pd.DataFrame({"date": idx, "price": np.round(price, 3)})
 
     # ------------------------------------------------------------------
@@ -436,8 +530,13 @@ class MockDataGenerator:
             "emission_rates": self.generate_emission_rates(start_date, end_date),
             "tx_ratings": self.generate_tx_ratings(start_date, end_date),
             "instantaneous_load": self.generate_instantaneous_load(start_date, end_date),
+            "transmission_constraints": self.generate_transmission_constraints(start_date, end_date),
             # New Morningstar feeds
             "columbia_gas": self.generate_columbia_gas(start_date, end_date),
             "whub_forward": self.generate_whub_forward(start_date, end_date),
             "z5_gas_forward": self.generate_z5_gas_forward(start_date, end_date),
+            "dominion_south": self.generate_dominion_south(start_date, end_date),
+            "tetco_m3": self.generate_tetco_m3(start_date, end_date),
+            # EIA feeds
+            "gas_storage": self.generate_gas_storage(start_date, end_date),
         }

@@ -71,6 +71,10 @@ data:
   cache_dir: "data/cache"
   historical_years: 3
 
+eia:
+  api_key: ""  # Free — register at https://www.eia.gov/opendata/register.php
+  api_base_url: "https://api.eia.gov/v2"
+
 paths:
   models_dir: "models"
   reports_dir: "reports"
