@@ -1,4 +1,4 @@
-"""Gas price API client for Transco Zone 5, Transco Zone 6 NNY, Henry Hub, and regional gas prices."""
+"""Gas price API client for Transco Zone 5 and regional gas prices."""
 
 import pandas as pd
 from typing import Union
@@ -12,9 +12,8 @@ logger = logging.getLogger(__name__)
 class GasClient:
     """Client for gas price data (Morningstar Commodities).
 
-    Fetches Transco Zone 5 (primary), Zone 6 NNY (secondary feature),
-    Henry Hub, Columbia Gas, Dominion South, TETCO M3, and forward curves.
-    Falls back to mock data if no API key is configured.
+    Fetches Transco Zone 5 (primary), Columbia Gas, Dominion South, TETCO M3,
+    and forward curves. Falls back to mock data if no API key is configured.
     """
 
     def __init__(self, config_path: Union[str, Path] = None):
@@ -40,29 +39,6 @@ class GasClient:
         if not self._has_api_key():
             logger.warning("No gas API key configured — using mock data")
             return self._mock.generate_gas_price(start_date, end_date)
-        raise NotImplementedError("Set gas.api_key in config/settings.yaml")
-
-    def fetch_transco_z6_nny(self, start_date, end_date) -> pd.DataFrame:
-        """Fetch daily Transco Zone 6 NNY gas price ($/MMBtu).
-
-        Currently unused — available if Zone 6 spread feature is added later.
-
-        Returns DataFrame with columns: date, gas_price
-        """
-        if not self._has_api_key():
-            logger.warning("No gas API key configured — using mock data")
-            return self._mock.generate_gas_price(start_date, end_date)
-        raise NotImplementedError("Set gas.api_key in config/settings.yaml")
-
-    def fetch_henry_hub(self, start_date, end_date) -> pd.DataFrame:
-        """Fetch daily Henry Hub futures price ($/MMBtu).
-
-        Deprecated: use EIAClient.fetch_henry_hub_spot() instead (free, no auth).
-
-        Returns DataFrame with columns: date, henry_hub_price
-        """
-        if not self._has_api_key():
-            return self._mock.generate_henry_hub(start_date, end_date)
         raise NotImplementedError("Set gas.api_key in config/settings.yaml")
 
     def fetch_columbia_gas(self, start_date, end_date) -> pd.DataFrame:

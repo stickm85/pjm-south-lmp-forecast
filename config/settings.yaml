@@ -8,10 +8,6 @@ pjm:
 gas:
   api_key: ""    # Set your Morningstar Commodities API key here
 
-morningstar:
-  api_base_url: "https://api.morningstar.com/v2/datasets"
-  api_key: ""    # Set your Morningstar Commodities API key here
-
 weather:
   noaa_api_base: "https://api.weather.gov"  # Legacy — not actively used; see openmeteo section
   cities:

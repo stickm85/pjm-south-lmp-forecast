@@ -1,4 +1,4 @@
-"""Daily data ingestion pipeline for ~38 data sources."""
+"""Daily data ingestion pipeline for ~30 data sources."""
 
 import logging
 import json
@@ -24,8 +24,6 @@ class DailyIngestPipeline:
         "transmission_outages", "generator_outages",
         "iso_prices", "interchange",
         "fuel_mix", "installed_capacity",
-        "emergency_logs",
-        "demand_response",
         "columbia_gas", "whub_forward", "z5_gas_forward",
         "ancillary_prices", "emission_rates",
         "instantaneous_load", "transmission_constraints",
@@ -50,7 +48,6 @@ class DailyIngestPipeline:
         from ..data.outage_client import OutageClient
         from ..data.iso_client import ISOClient
         from ..data.capacity_client import CapacityClient
-        from ..data.market_client import MarketClient
 
         self.pjm = PJMClient(config_path)
         self.gas = GasClient(config_path)
@@ -58,7 +55,6 @@ class DailyIngestPipeline:
         self.outage = OutageClient(config_path)
         self.iso = ISOClient(config_path)
         self.capacity = CapacityClient(config_path)
-        self.market = MarketClient(config_path)
 
         from ..data.openmeteo_client import OpenMeteoClient
         from ..data.eia_client import EIAClient
@@ -111,8 +107,6 @@ class DailyIngestPipeline:
             "generator_outages": lambda: self.outage.fetch_generator_outages(start, end),
             "iso_prices": lambda: self.iso.fetch_iso_prices(start, end),
             "installed_capacity": lambda: self.capacity.fetch_installed_solar(start, end),
-            "emergency_logs": lambda: self.market.fetch_emergency_logs(start, end),
-            "demand_response": lambda: self.market.fetch_demand_response(start, end),
             # New PJM feeds
             "ancillary_prices": lambda: self.pjm.fetch_ancillary_prices(start, end),
             "emission_rates": lambda: self.pjm.fetch_emission_rates(start, end),

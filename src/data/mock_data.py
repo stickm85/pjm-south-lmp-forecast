@@ -1,4 +1,4 @@
-"""Mock data generator for all 41 data sources used in PJM SOUTH LMP forecasting."""
+"""Mock data generator for active data sources used in PJM SOUTH LMP forecasting."""
 
 import numpy as np
 import pandas as pd
@@ -137,15 +137,6 @@ class MockDataGenerator:
         rh = np.clip(60 + self.rng.normal(0, 10, n), 20, 100)
         return pd.DataFrame({"datetime": idx, "dew_point_f": dew_point, "rh_pct": rh, "city": city})
 
-    def generate_wind_cloud_forecast(self, start_date, end_date, city: str = "Richmond VA") -> pd.DataFrame:
-        """Hourly wind speed + cloud cover."""
-        idx = self._hourly_index(start_date, end_date)
-        n = len(idx)
-        wind_speed = np.abs(self.rng.normal(10, 5, n))
-        cloud_cover = np.clip(self.rng.normal(50, 30, n), 0, 100)
-        return pd.DataFrame({"datetime": idx, "wind_speed_mph": wind_speed,
-                              "cloud_cover_pct": cloud_cover, "city": city})
-
     # ------------------------------------------------------------------
     # Renewable generation
     # ------------------------------------------------------------------
@@ -224,15 +215,6 @@ class MockDataGenerator:
     # Fuel / market
     # ------------------------------------------------------------------
 
-    def generate_henry_hub(self, start_date, end_date) -> pd.DataFrame:
-        """Daily Henry Hub futures ($/MMBtu)."""
-        idx = self._daily_index(start_date, end_date)
-        n = len(idx)
-        base = 3.0
-        seasonal = 0.4 * np.sin(2 * np.pi * (idx.dayofyear - 355) / 365)
-        price = np.maximum(1.5, base + seasonal + self.rng.normal(0, 0.2, n))
-        return pd.DataFrame({"date": idx, "henry_hub_price": price})
-
     def generate_fuel_mix(self, start_date, end_date) -> pd.DataFrame:
         """Hourly generation by fuel (MW)."""
         idx = self._hourly_index(start_date, end_date)
@@ -244,15 +226,8 @@ class MockDataGenerator:
         return pd.DataFrame({"datetime": idx, "gas_mw": gas, "coal_mw": coal,
                               "nuclear_mw": nuclear, "hydro_mw": hydro})
 
-    def generate_coal_price(self, start_date, end_date) -> pd.DataFrame:
-        """Weekly coal spot price ($/short ton)."""
-        idx = pd.date_range(pd.Timestamp(start_date), pd.Timestamp(end_date), freq="W")
-        n = len(idx)
-        price = np.maximum(50, 70 + self.rng.normal(0, 5, n))
-        return pd.DataFrame({"date": idx, "coal_price_per_ton": price})
-
     # ------------------------------------------------------------------
-    # Capacity / BESS
+    # Capacity / installed generation
     # ------------------------------------------------------------------
 
     def generate_installed_capacity(self, start_date, end_date) -> pd.DataFrame:
@@ -263,45 +238,6 @@ class MockDataGenerator:
         wind_cap = 25000 + np.arange(n) * 30 + self.rng.normal(0, 80, n)
         return pd.DataFrame({"date": idx, "solar_capacity_mw": solar_cap,
                               "wind_capacity_mw": wind_cap})
-
-    def generate_bess_capacity(self, start_date, end_date) -> pd.DataFrame:
-        """Quarterly BESS capacity (MW)."""
-        idx = pd.date_range(pd.Timestamp(start_date), pd.Timestamp(end_date), freq="QS")
-        n = len(idx)
-        bess = 500 + np.arange(n) * 100 + self.rng.normal(0, 20, n)
-        return pd.DataFrame({"date": idx, "bess_capacity_mw": np.maximum(0, bess)})
-
-    # ------------------------------------------------------------------
-    # Market / virtual / DR / environmental
-    # ------------------------------------------------------------------
-
-    def generate_virtual_bids(self, start_date, end_date) -> pd.DataFrame:
-        """Daily virtual bid volume (INCs and DECs, MW)."""
-        idx = self._daily_index(start_date, end_date)
-        n = len(idx)
-        incs = np.abs(self.rng.normal(500, 200, n))
-        decs = np.abs(self.rng.normal(450, 180, n))
-        return pd.DataFrame({"date": idx, "inc_volume_mw": incs, "dec_volume_mw": decs})
-
-    def generate_emergency_logs(self, start_date, end_date) -> pd.DataFrame:
-        """Daily EEA flags."""
-        idx = self._daily_index(start_date, end_date)
-        eea_flag = (self.rng.random(len(idx)) < 0.03).astype(int)
-        return pd.DataFrame({"date": idx, "eea_flag": eea_flag})
-
-    def generate_rggi_price(self, start_date, end_date) -> pd.DataFrame:
-        """Quarterly RGGI allowance price ($/ton CO2)."""
-        idx = pd.date_range(pd.Timestamp(start_date), pd.Timestamp(end_date), freq="QS")
-        n = len(idx)
-        price = np.maximum(5, 14 + self.rng.normal(0, 1.5, n))
-        return pd.DataFrame({"date": idx, "rggi_price": price})
-
-    def generate_demand_response(self, start_date, end_date) -> pd.DataFrame:
-        """Daily DR event flags."""
-        idx = self._daily_index(start_date, end_date)
-        dr_flag = (self.rng.random(len(idx)) < 0.05).astype(int)
-        dr_mw = dr_flag * np.abs(self.rng.normal(800, 200, len(idx)))
-        return pd.DataFrame({"date": idx, "dr_event_flag": dr_flag, "dr_mw": dr_mw})
 
     # ------------------------------------------------------------------
     # New PJM API mock generators
@@ -332,18 +268,6 @@ class MockDataGenerator:
         return pd.DataFrame({
             "datetime": idx,
             "marginal_emission_rate_lbs_mwh": np.round(rate, 1),
-        })
-
-    def generate_tx_ratings(self, start_date, end_date) -> pd.DataFrame:
-        """Daily transmission de-rate flags and derated MW."""
-        idx = self._daily_index(start_date, end_date)
-        n = len(idx)
-        derate_flag = (self.rng.random(n) < 0.08).astype(int)
-        derated_mw = derate_flag * np.abs(self.rng.normal(500, 200, n))
-        return pd.DataFrame({
-            "date": idx,
-            "tx_derate_flag": derate_flag,
-            "derated_mw": np.round(derated_mw, 0),
         })
 
     def generate_instantaneous_load(self, start_date, end_date) -> pd.DataFrame:
@@ -515,22 +439,14 @@ class MockDataGenerator:
             "generator_outages": self.generate_generator_outages(start_date, end_date),
             "iso_prices": self.generate_iso_prices(start_date, end_date),
             "interchange": self.generate_interchange(start_date, end_date),
-            "henry_hub": self.generate_henry_hub(start_date, end_date),
             "fuel_mix": self.generate_fuel_mix(start_date, end_date),
             "capacity": self.generate_installed_capacity(start_date, end_date),
-            "bess_capacity": self.generate_bess_capacity(start_date, end_date),
-            "virtual_bids": self.generate_virtual_bids(start_date, end_date),
-            "emergency_logs": self.generate_emergency_logs(start_date, end_date),
-            "rggi_price": self.generate_rggi_price(start_date, end_date),
-            "demand_response": self.generate_demand_response(start_date, end_date),
-            "coal_price": self.generate_coal_price(start_date, end_date),
             # New PJM feeds
             "ancillary_prices": self.generate_ancillary_prices(start_date, end_date),
             "emission_rates": self.generate_emission_rates(start_date, end_date),
-            "tx_ratings": self.generate_tx_ratings(start_date, end_date),
             "instantaneous_load": self.generate_instantaneous_load(start_date, end_date),
             "transmission_constraints": self.generate_transmission_constraints(start_date, end_date),
-            # New Morningstar feeds
+            # Gas feeds
             "columbia_gas": self.generate_columbia_gas(start_date, end_date),
             "whub_forward": self.generate_whub_forward(start_date, end_date),
             "z5_gas_forward": self.generate_z5_gas_forward(start_date, end_date),
