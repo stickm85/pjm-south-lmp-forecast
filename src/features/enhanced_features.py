@@ -26,9 +26,9 @@ def _storage_5yr_avg(doy: int) -> float:
 
 
 class EnhancedFeatureBuilder:
-    """Builds 18 new derived features from Open-Meteo, Morningstar, PJM, and EIA data.
+    """Builds 18 derived features from Open-Meteo, Morningstar, PJM, and EIA data.
 
-    Feature list:
+    11 original features:
       1.  ghi_solar_estimate_h      — avg GHI × installed solar MW / 1000
       2.  clear_sky_fraction_h      — direct / shortwave (clipped 0–1)
       3.  gust_curtailment_flag     — 1 if max(windgusts) > 25 m/s else 0
@@ -40,6 +40,8 @@ class EnhancedFeatureBuilder:
       9.  marginal_emission_rate_d1 — avg hourly emission rate D-1 (lb CO2/MWh)
       10. pressure_gradient_12h     — pressure_h − pressure_{h-12}
       11. precip_flag               — 1 if precipitation > 0 else 0
+
+    7 new features (Priority 2+3):
       12. n_binding_constraints_h   — count of binding constraints (D-1 same hour proxy)
       13. max_shadow_price_d1       — max shadow price from D-1 (signals persistent congestion)
       14. congestion_regime         — 1 if D-1 had >2 binding constraints with shadow > $10
@@ -330,7 +332,6 @@ class EnhancedFeatureBuilder:
             return result
 
         # Feature 12: n_binding_constraints_h — D-1 same hour as proxy
-        d1_data = d1_data.copy()
         d1_data["hour_ending"] = d1_data["datetime"].dt.hour
         d1_data.loc[d1_data["hour_ending"] == 0, "hour_ending"] = 24
 
