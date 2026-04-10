@@ -1,4 +1,4 @@
-"""Daily data ingestion pipeline for all 41 data sources."""
+"""Daily data ingestion pipeline for ~38 data sources."""
 
 import logging
 import json
@@ -23,10 +23,14 @@ class DailyIngestPipeline:
         "solar_actuals", "wind_actuals",
         "transmission_outages", "generator_outages",
         "iso_prices", "interchange",
-        "fuel_mix", "installed_capacity", "bess_capacity",
-        "virtual_bids", "emergency_logs", "rggi_price",
-        "demand_response", "coal_price",
-        "wind_cloud", "rggi_price",
+        "fuel_mix", "installed_capacity",
+        "emergency_logs",
+        "demand_response",
+        "columbia_gas", "whub_forward", "z5_gas_forward",
+        "ancillary_prices", "emission_rates",
+        "instantaneous_load", "transmission_constraints",
+        "dominion_south", "tetco_m3",
+        "gas_storage",
     ]
 
     def __init__(self, config_path: Optional[Union[str, Path]] = None):
@@ -57,10 +61,8 @@ class DailyIngestPipeline:
         self.market = MarketClient(config_path)
 
         from ..data.openmeteo_client import OpenMeteoClient
-        from ..data.morningstar_client import MorningstarClient
         from ..data.eia_client import EIAClient
         self.openmeteo = OpenMeteoClient()
-        self.morningstar = MorningstarClient(config_path)
         self.eia = EIAClient(config_path)
 
     def run(
@@ -100,9 +102,8 @@ class DailyIngestPipeline:
             "wind_actuals": lambda: self.pjm.fetch_wind_actuals(start, end),
             "interchange": lambda: self.pjm.fetch_interchange(start, end),
             "fuel_mix": lambda: self.pjm.fetch_fuel_mix(start, end),
-            "virtual_bids": lambda: self.pjm.fetch_virtual_bids(start, end),
             "gas_price": lambda: self.gas.fetch_transco_z5(start, end),
-            "henry_hub": lambda: self.gas.fetch_henry_hub(start, end),
+            "henry_hub": lambda: self.eia.fetch_henry_hub_spot(start, end),
             "columbia_gas": lambda: self.gas.fetch_columbia_gas(start, end),
             "whub_forward": lambda: self.gas.fetch_whub_forward(start, end),
             "z5_gas_forward": lambda: self.gas.fetch_z5_gas_forward(start, end),
@@ -110,23 +111,17 @@ class DailyIngestPipeline:
             "generator_outages": lambda: self.outage.fetch_generator_outages(start, end),
             "iso_prices": lambda: self.iso.fetch_iso_prices(start, end),
             "installed_capacity": lambda: self.capacity.fetch_installed_solar(start, end),
-            "bess_capacity": lambda: self.capacity.fetch_installed_bess(start, end),
-            "rggi_price": lambda: self.market.fetch_rggi_price(start, end),
-            "coal_price": lambda: self.market.fetch_coal_price(start, end),
             "emergency_logs": lambda: self.market.fetch_emergency_logs(start, end),
             "demand_response": lambda: self.market.fetch_demand_response(start, end),
             # New PJM feeds
             "ancillary_prices": lambda: self.pjm.fetch_ancillary_prices(start, end),
             "emission_rates": lambda: self.pjm.fetch_emission_rates(start, end),
-            "tx_ratings": lambda: self.pjm.fetch_tx_ratings(start, end),
             "instantaneous_load": lambda: self.pjm.fetch_instantaneous_load(start, end),
             "transmission_constraints": lambda: self.pjm.fetch_transmission_constraints(start, end),
-            # New Morningstar feeds
-            "dominion_south": lambda: self.morningstar.fetch_dominion_south(start, end),
-            "tetco_m3": lambda: self.morningstar.fetch_tetco_m3(start, end),
+            # Regional gas price feeds (now via GasClient)
+            "dominion_south": lambda: self.gas.fetch_dominion_south(start, end),
+            "tetco_m3": lambda: self.gas.fetch_tetco_m3(start, end),
             # EIA feeds
-            "eia_henry_hub": lambda: self.eia.fetch_henry_hub_spot(start, end),
-            "eia_wholesale_power": lambda: self.eia.fetch_wholesale_power(start, end),
             "gas_storage": lambda: self.eia.fetch_gas_storage(start, end),
         }
 

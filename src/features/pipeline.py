@@ -19,7 +19,7 @@ from ..data.mock_data import MockDataGenerator
 
 
 class FeaturePipeline:
-    """Assembles all features for 24-hour LMP forecast (51 original + 7 new = ~58+ features).
+    """Assembles all features for 24-hour LMP forecast (~45 features across 10 builders).
 
     Usage:
         pipeline = FeaturePipeline()
@@ -160,12 +160,6 @@ class FeaturePipeline:
         # 8. Market features
         market_feats = self.market_builder.build(
             target_date,
-            historical_data.get("virtual_bids", self.mock.generate_virtual_bids(
-                target_date - pd.Timedelta(days=10), target_date - pd.Timedelta(days=1)
-            )),
-            historical_data.get("bess_capacity", self.mock.generate_bess_capacity(
-                target_date - pd.Timedelta(days=90), target_date
-            )),
             historical_data.get("south_da", self.mock.generate_pjm_da_lmp(
                 target_date - pd.Timedelta(days=2), target_date - pd.Timedelta(days=1)
             )),
@@ -174,13 +168,10 @@ class FeaturePipeline:
         # 9. Regime features
         regime_feats = self.regime_builder.build(
             target_date,
-            historical_data.get("emergency_logs", self.mock.generate_emergency_logs(
-                target_date - pd.Timedelta(days=5), target_date - pd.Timedelta(days=1)
-            )),
             historical_data.get("metered_load", self.mock.generate_metered_load(
                 target_date - pd.Timedelta(days=5), target_date - pd.Timedelta(days=1)
             )),
-            historical_data.get("capacity_installed", self.mock.generate_generator_outages(
+            historical_data.get("generator_outages", self.mock.generate_generator_outages(
                 target_date - pd.Timedelta(days=5), target_date - pd.Timedelta(days=1)
             )),
         )

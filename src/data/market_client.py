@@ -17,6 +17,8 @@ class MarketClient:
     def fetch_rggi_price(self, start_date, end_date) -> pd.DataFrame:
         """Fetch quarterly RGGI allowance price ($/ton CO2).
 
+        # Deprecated: RGGI costs are embedded in DA LMP clearing price; quarterly data adds minimal variance
+
         Returns DataFrame with columns: date, rggi_price
         """
         logger.debug("Fetching RGGI price (using mock)")
@@ -24,6 +26,8 @@ class MarketClient:
 
     def fetch_coal_price(self, start_date, end_date) -> pd.DataFrame:
         """Fetch weekly coal spot price ($/short ton).
+
+        # Deprecated: coal is <5% of PJM's marginal fuel stack; not used in forecast pipeline
 
         Returns DataFrame with columns: date, coal_price_per_ton
         """

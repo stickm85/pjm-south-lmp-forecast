@@ -94,12 +94,13 @@ class TestOpenMeteoClient:
 # ---------------------------------------------------------------------------
 
 class TestMorningstarClient:
-    """Tests for MorningstarClient and its mock data generator."""
+    """Tests for gas price client methods (columbia gas, forward curves)."""
+    # Note: These methods were formerly in MorningstarClient, now in GasClient
 
     def test_columbia_gas_schema(self):
         """Columbia Gas mock should have date and price columns."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_columbia_gas("2024-01-01", "2024-01-31")
         assert "date" in df.columns
         assert "price" in df.columns
@@ -107,44 +108,42 @@ class TestMorningstarClient:
 
     def test_columbia_gas_price_range(self):
         """Columbia Gas price should be within $2–$8/MMBtu range."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_columbia_gas("2024-01-01", "2024-12-31")
         assert (df["price"] >= 1.5).all(), "Price below minimum realistic value"
         assert (df["price"] <= 12.0).all(), "Price above maximum realistic value"
 
     def test_whub_forward_schema(self):
         """WHub forward mock should have date and price columns."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_whub_forward("2024-01-01", "2024-01-31")
         assert "date" in df.columns
         assert "price" in df.columns
 
     def test_whub_forward_price_range(self):
         """WHub forward price should be within $25–$80/MWh range."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_whub_forward("2024-01-01", "2024-12-31")
         assert (df["price"] >= 25.0).all()
         assert (df["price"] <= 80.0).all()
 
     def test_z5_gas_forward_schema(self):
         """Z5 forward mock should have date and price columns."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_z5_gas_forward("2024-01-01", "2024-01-31")
         assert "date" in df.columns
         assert "price" in df.columns
 
     def test_z5_forward_above_spot(self):
         """Z5 forward (prompt-month) should typically be above spot (contango)."""
-        from src.data.morningstar_client import MorningstarClient
         from src.data.gas_client import GasClient
-        client = MorningstarClient()
-        gas = GasClient()
+        client = GasClient()
         fwd = client.fetch_z5_gas_forward("2024-06-01", "2024-06-30")
-        spot = gas.fetch_transco_z5("2024-06-01", "2024-06-30")
+        spot = client.fetch_transco_z5("2024-06-01", "2024-06-30")
         # On average, forward should be >= spot (contango assumption in mock)
         avg_fwd = fwd["price"].mean()
         avg_spot = spot["gas_price"].mean()
@@ -277,7 +276,6 @@ class TestEnhancedFeatures:
             "reserve_scarcity_signal",
             "marginal_emission_rate_d1",
             "pressure_gradient_12h",
-            "precip_flag",
         ]
         missing = [f for f in expected_features if f not in df.columns]
         assert not missing, f"Missing features: {missing}"
@@ -305,14 +303,6 @@ class TestEnhancedFeatures:
         builder = EnhancedFeatureBuilder()
         df = builder.build(self.TARGET_DATE, openmeteo_data=self._make_openmeteo_data())
         non_nan = df["gust_curtailment_flag"].dropna()
-        assert non_nan.isin([0, 1]).all()
-
-    def test_precip_flag_binary(self):
-        """Precipitation flag should be 0 or 1."""
-        from src.features.enhanced_features import EnhancedFeatureBuilder
-        builder = EnhancedFeatureBuilder()
-        df = builder.build(self.TARGET_DATE, openmeteo_data=self._make_openmeteo_data())
-        non_nan = df["precip_flag"].dropna()
         assert non_nan.isin([0, 1]).all()
 
     def test_columbia_z5_spread_formula(self):
@@ -457,7 +447,6 @@ class TestPipelineIntegration:
         "reserve_scarcity_signal",
         "marginal_emission_rate_d1",
         "pressure_gradient_12h",
-        "precip_flag",
     ]
 
     NEW_ENHANCED_FEATURE_NAMES = [
@@ -471,7 +460,7 @@ class TestPipelineIntegration:
     ]
 
     def test_pipeline_includes_enhanced_features(self):
-        """FeaturePipeline.build() output should include all 11 new features."""
+        """FeaturePipeline.build() output should include all 10 new enhanced features."""
         from src.features.pipeline import FeaturePipeline
         pipeline = FeaturePipeline()
         df = pipeline.build(
@@ -746,14 +735,17 @@ class TestEIAClient:
 # ---------------------------------------------------------------------------
 
 class TestRegionalGasSpreads:
-    """Tests for Dominion South and TETCO M3 data and derived features."""
+    """Tests for Dominion South and TETCO M3 data and derived features.
+
+    Note: fetch_dominion_south() and fetch_tetco_m3() are now in GasClient.
+    """
 
     TARGET_DATE = "2024-06-15"
 
     def test_dominion_south_schema_morningstar(self):
         """MorningstarClient.fetch_dominion_south() should return date and price."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_dominion_south("2024-01-01", "2024-01-31")
         assert "date" in df.columns
         assert "price" in df.columns
@@ -761,17 +753,17 @@ class TestRegionalGasSpreads:
 
     def test_dominion_south_price_range(self):
         """Dominion South price should be $1.50-$7.50/MMBtu."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_dominion_south("2024-01-01", "2024-12-31")
         assert (df["price"] >= 1.50).all()
         assert (df["price"] <= 7.50).all()
 
     def test_dominion_south_discount_to_z5(self):
         """Dominion South should typically trade at a discount to Transco Z5."""
-        from src.data.morningstar_client import MorningstarClient
+        from src.data.gas_client import GasClient
         from src.data.mock_data import MockDataGenerator
-        ms = MorningstarClient()
+        ms = GasClient()
         mock = MockDataGenerator(seed=0)
         dom = ms.fetch_dominion_south("2024-01-01", "2024-12-31")
         z5 = mock.generate_gas_price("2024-01-01", "2024-12-31")
@@ -781,8 +773,8 @@ class TestRegionalGasSpreads:
 
     def test_tetco_m3_schema_morningstar(self):
         """MorningstarClient.fetch_tetco_m3() should return date and price."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_tetco_m3("2024-01-01", "2024-01-31")
         assert "date" in df.columns
         assert "price" in df.columns
@@ -790,8 +782,8 @@ class TestRegionalGasSpreads:
 
     def test_tetco_m3_price_range(self):
         """TETCO M3 price should be $2.00-$8.50/MMBtu."""
-        from src.data.morningstar_client import MorningstarClient
-        client = MorningstarClient()
+        from src.data.gas_client import GasClient
+        client = GasClient()
         df = client.fetch_tetco_m3("2024-01-01", "2024-12-31")
         assert (df["price"] >= 2.00).all()
         assert (df["price"] <= 8.50).all()

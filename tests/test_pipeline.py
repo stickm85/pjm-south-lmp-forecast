@@ -23,7 +23,7 @@ def test_pipeline_has_required_columns():
         "hour_ending", "datetime",
         "WHub_DA", "Gas_Price", "Spark_Spread_Gas",
         "is_onpeak", "hour_sin", "hour_cos", "month_sin", "month_cos",
-        "day_of_week", "is_holiday", "is_weekend",
+        "dow_sin", "dow_cos", "is_holiday", "is_weekend",
         "Basis_D1", "DA_RT_Spread_D1",
         "Net_Load_h", "HDD", "CDD",
         "Solar_Capacity_Factor_D1", "Wind_Capacity_Factor_D1",

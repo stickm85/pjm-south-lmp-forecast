@@ -26,9 +26,10 @@ def _storage_5yr_avg(doy: int) -> float:
 
 
 class EnhancedFeatureBuilder:
-    """Builds 18 derived features from Open-Meteo, Morningstar, PJM, and EIA data.
+    """Builds 17 derived features from Open-Meteo, Morningstar, PJM, and EIA data.
 
-    11 original features:
+    10 original features (precip_flag removed — near-zero correlation with LMP after
+    controlling for cloud cover and temperature):
       1.  ghi_solar_estimate_h      — avg GHI × installed solar MW / 1000
       2.  clear_sky_fraction_h      — direct / shortwave (clipped 0–1)
       3.  gust_curtailment_flag     — 1 if max(windgusts) > 25 m/s else 0
@@ -39,16 +40,15 @@ class EnhancedFeatureBuilder:
       8.  reserve_scarcity_signal   — 1 if sync_reserve_price > 50 else 0
       9.  marginal_emission_rate_d1 — avg hourly emission rate D-1 (lb CO2/MWh)
       10. pressure_gradient_12h     — pressure_h − pressure_{h-12}
-      11. precip_flag               — 1 if precipitation > 0 else 0
 
     7 new features (Priority 2+3):
-      12. n_binding_constraints_h   — count of binding constraints (D-1 same hour proxy)
-      13. max_shadow_price_d1       — max shadow price from D-1 (signals persistent congestion)
-      14. congestion_regime         — 1 if D-1 had >2 binding constraints with shadow > $10
-      15. storage_vs_5yr_avg        — current storage minus 5-year average for this week (Bcf)
-      16. storage_injection_rate    — storage_delta_bcf (positive=injection/bearish, negative=withdrawal/bullish)
-      17. dominion_z5_spread        — Dominion South price minus Transco Z5 price (usually negative)
-      18. tetco_z5_spread           — TETCO M3 price minus Transco Z5 price (positive = Mid-Atlantic premium)
+      11. n_binding_constraints_h   — count of binding constraints (D-1 same hour proxy)
+      12. max_shadow_price_d1       — max shadow price from D-1 (signals persistent congestion)
+      13. congestion_regime         — 1 if D-1 had >2 binding constraints with shadow > $10
+      14. storage_vs_5yr_avg        — current storage minus 5-year average for this week (Bcf)
+      15. storage_injection_rate    — storage_delta_bcf (positive=injection/bearish, negative=withdrawal/bullish)
+      16. dominion_z5_spread        — Dominion South price minus Transco Z5 price (usually negative)
+      17. tetco_z5_spread           — TETCO M3 price minus Transco Z5 price (positive = Mid-Atlantic premium)
     """
 
     def build(
@@ -140,7 +140,7 @@ class EnhancedFeatureBuilder:
         openmeteo_data: Optional[pd.DataFrame],
         installed_solar_mw: float,
     ) -> pd.DataFrame:
-        """Add features 1, 2, 3, 10, 11 from Open-Meteo data."""
+        """Add features 1, 2, 3, 10 from Open-Meteo data."""
 
         if openmeteo_data is None or openmeteo_data.empty:
             logger.warning("No Open-Meteo data — setting enhanced weather features to NaN")
@@ -148,7 +148,6 @@ class EnhancedFeatureBuilder:
             result["clear_sky_fraction_h"] = np.nan
             result["gust_curtailment_flag"] = np.nan
             result["pressure_gradient_12h"] = np.nan
-            result["precip_flag"] = np.nan
             return result
 
         # Filter to target date
@@ -162,7 +161,6 @@ class EnhancedFeatureBuilder:
             result["clear_sky_fraction_h"] = np.nan
             result["gust_curtailment_flag"] = np.nan
             result["pressure_gradient_12h"] = np.nan
-            result["precip_flag"] = np.nan
             return result
 
         # Aggregate across all cities per hour
@@ -173,7 +171,6 @@ class EnhancedFeatureBuilder:
             avg_ghi=("shortwave_radiation", "mean"),
             avg_direct=("direct_radiation", "mean"),
             max_gusts=("windgusts_10m", "max"),
-            sum_precip=("precipitation", "sum"),
             avg_pressure=("pressure_msl", "mean"),
         ).reset_index()
 
@@ -196,9 +193,6 @@ class EnhancedFeatureBuilder:
         # Feature 3: Gust curtailment flag (max gusts > 25 m/s)
         result["gust_curtailment_flag"] = (result["max_gusts"] > 25.0).astype(int)
 
-        # Feature 11: Precipitation flag
-        result["precip_flag"] = (result["sum_precip"] > 0).astype(int)
-
         # Feature 10: Pressure gradient (pressure_h - pressure_{h-12})
         # Build a full pressure series indexed by hour_ending
         pressure_map = result.set_index("hour_ending")["avg_pressure"].to_dict()
@@ -213,7 +207,7 @@ class EnhancedFeatureBuilder:
         result["pressure_gradient_12h"] = gradients
 
         # Drop intermediate columns
-        result.drop(columns=["avg_ghi", "avg_direct", "max_gusts", "sum_precip", "avg_pressure"],
+        result.drop(columns=["avg_ghi", "avg_direct", "max_gusts", "avg_pressure"],
                     errors="ignore", inplace=True)
         return result
 

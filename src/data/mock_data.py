@@ -513,7 +513,6 @@ class MockDataGenerator:
             "wind_actuals": self.generate_wind_actuals(start_date, end_date),
             "transmission_outages": self.generate_transmission_outages(start_date, end_date),
             "generator_outages": self.generate_generator_outages(start_date, end_date),
-            "capacity_installed": self.generate_generator_outages(start_date, end_date),
             "iso_prices": self.generate_iso_prices(start_date, end_date),
             "interchange": self.generate_interchange(start_date, end_date),
             "henry_hub": self.generate_henry_hub(start_date, end_date),

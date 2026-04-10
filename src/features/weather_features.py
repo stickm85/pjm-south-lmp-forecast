@@ -11,7 +11,6 @@ class WeatherFeatureBuilder:
     Features:
       - Heat_Index: apparent temperature from temp + humidity
       - Wet_Bulb_Temp: wet bulb temperature
-      - Dew_Point: dew point temperature
       - Temp_South_Avg: average temperature across SOUTH cities
       - Temp_WHub_Avg: average temperature across WHub cities
       - Temp_Differential: SOUTH avg - WHub avg
@@ -19,8 +18,7 @@ class WeatherFeatureBuilder:
       - CDD: Cooling Degree Days (base 65°F)
       - HDD_sq: HDD squared
       - CDD_sq: CDD squared
-      - HDD_humidity_adj: HDD adjusted for humidity
-      - CDD_humidity_adj: CDD adjusted for humidity
+      - RH_Avg: Average relative humidity
     """
 
     BASE_TEMP = 65.0  # °F
@@ -58,18 +56,13 @@ class WeatherFeatureBuilder:
                     whub_temps.append(t)
             temp_whub_avg = float(np.mean(whub_temps)) if whub_temps else 55.0
 
-            # Average humidity (dew point + RH) across SOUTH cities
-            dew_points = []
+            # Average humidity (RH) across SOUTH cities
             rh_values = []
             for city, df in humidity.items():
-                dp = self._get_col(df, dt, "dew_point_f")
                 rh = self._get_col(df, dt, "rh_pct")
-                if dp is not None:
-                    dew_points.append(dp)
                 if rh is not None:
                     rh_values.append(rh)
 
-            dew_point = float(np.mean(dew_points)) if dew_points else 50.0
             rh_avg = float(np.mean(rh_values)) if rh_values else 60.0
 
             heat_index = self._heat_index(temp_south_avg, rh_avg)
@@ -84,14 +77,11 @@ class WeatherFeatureBuilder:
                 "Temp_Differential": temp_south_avg - temp_whub_avg,
                 "Heat_Index": heat_index,
                 "Wet_Bulb_Temp": wet_bulb,
-                "Dew_Point": dew_point,
                 "RH_Avg": rh_avg,
                 "HDD": hdd,
                 "CDD": cdd,
                 "HDD_sq": hdd ** 2,
                 "CDD_sq": cdd ** 2,
-                "HDD_humidity_adj": hdd * (1 + 0.01 * max(0, rh_avg - 50)),
-                "CDD_humidity_adj": cdd * (1 + 0.01 * max(0, rh_avg - 50)),
             })
 
         return pd.DataFrame(rows)
