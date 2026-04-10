@@ -14,7 +14,6 @@ class RenewableFeatureBuilder:
       - Solar_Ramp_D1: change in solar actuals from D-2 to D-1
       - Renewable_Penetration_D1: (Solar+Wind)/System_Load (D-1)
       - Solar_Forecast_vs_Actual_Ratio: D-1 solar forecast accuracy
-      - Cumulative_Solar_Capacity_Trend: installed capacity MW
     """
 
     def build(
@@ -63,8 +62,6 @@ class RenewableFeatureBuilder:
                 "Solar_Ramp_D1": float(solar_ramp),
                 "Renewable_Penetration_D1": float(renewable_penetration),
                 "Solar_Forecast_vs_Actual_Ratio": float(fa_ratio),
-                "Cumulative_Solar_Capacity_MW": float(solar_cap),
-                "Cumulative_Wind_Capacity_MW": float(wind_cap),
             })
 
         return pd.DataFrame(rows)

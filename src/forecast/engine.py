@@ -333,6 +333,7 @@ class ForecastEngine:
         all_features = []
         all_targets = []
 
+        rng = np.random.default_rng(42)
         current = start_date + pd.Timedelta(days=30)
         while current <= end_date:
             try:
@@ -341,9 +342,9 @@ class ForecastEngine:
                     current += pd.Timedelta(days=1)
                     continue
 
-                whub_onpeak = float(np.random.normal(45, 10))
-                whub_offpeak = float(np.random.normal(30, 7))
-                gas_price = max(1.0, float(np.random.normal(3.5, 0.5)))
+                whub_onpeak = float(rng.normal(45, 10))
+                whub_offpeak = float(rng.normal(30, 7))
+                gas_price = max(1.0, float(rng.normal(3.5, 0.5)))
 
                 feats = self.pipeline.build(
                     current, whub_onpeak, whub_offpeak, gas_price, hist_data

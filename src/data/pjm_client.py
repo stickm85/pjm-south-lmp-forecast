@@ -101,8 +101,11 @@ class PJMClient:
     def fetch_virtual_bids(self, start_date, end_date) -> pd.DataFrame:
         """Fetch virtual bid volume at SOUTH node.
 
-        NOTE: Virtual transaction data is NOT public in PJM DataMiner 2.
-        Individual participant bids are confidential and held in settlement/billing
+        Deprecated: removed from pipeline — DA-RT spread (Basis_D1) is the preferred
+        proxy for virtual bidding sentiment. Virtual transaction data is NOT public in
+        PJM DataMiner 2.
+
+        NOTE: Individual participant bids are confidential and held in settlement/billing
         systems. This method returns mock data only and will never have a real API
         source. In production, the DA-RT spread (available as Basis_D1 via
         LagFeatureBuilder) serves as the actionable proxy for virtual bidding
@@ -143,6 +146,9 @@ class PJMClient:
 
     def fetch_tx_ratings(self, start_date, end_date) -> pd.DataFrame:
         """Fetch transmission line thermal ratings and de-rate flags.
+
+        Not used in pipeline — transmission_constraints (binding constraints with shadow
+        prices) is preferred.
 
         Source: OASIS thermal ratings feed.
         De-rated transmission corridors into SOUTH increase congestion

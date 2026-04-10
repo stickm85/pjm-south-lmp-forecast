@@ -122,10 +122,14 @@ def test_temporal_features_shape():
     assert len(df) == 24
     assert "hour_sin" in df.columns
     assert "hour_cos" in df.columns
+    assert "dow_sin" in df.columns
+    assert "dow_cos" in df.columns
     assert "month_sin" in df.columns
     assert "month_cos" in df.columns
-    assert "day_of_week" in df.columns
-    assert "days_since_epoch" in df.columns
+    # Removed raw day_of_week (use dow_sin/dow_cos cyclical encoding instead)
+    assert "day_of_week" not in df.columns
+    # Removed days_since_epoch (out-of-distribution for future predictions)
+    assert "days_since_epoch" not in df.columns
 
 
 def test_temporal_features_cyclical_encoding():

@@ -6,7 +6,6 @@ pjm:
   western_hub: "WESTHUB"
 
 gas:
-  source: "morningstar"  # Primary source: morningstar. Legacy options: ice, platts, ngi
   api_key: ""    # Set your Morningstar Commodities API key here
 
 morningstar:
