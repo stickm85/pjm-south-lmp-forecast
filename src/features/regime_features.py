@@ -40,7 +40,9 @@ class RegimeFeatureBuilder:
         day: pd.Timestamp,
         installed_capacity_mw: float = 180000.0,
     ) -> float:
-        """Estimate reserve margin as (capacity - outages - peak_load) / capacity.
+        """Estimate reserve margin as (available_capacity - peak_load) / available_capacity.
+
+        available_capacity = installed_capacity_mw - mw_offline (from generator_outages).
 
         Uses pjm_load_mw if available (more accurate PJM-system total);
         falls back to south_load_mw * 12 if pjm_load_mw is not present.

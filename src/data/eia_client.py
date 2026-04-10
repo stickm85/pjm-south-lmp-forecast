@@ -78,7 +78,8 @@ class EIAClient:
     def fetch_wholesale_power(self, start_date, end_date, hub: str = "PJM") -> pd.DataFrame:
         """Fetch daily wholesale electricity prices for PJM region.
 
-        # Not used in the forecast pipeline — SOUTH/WHub LMPs from PJM DataMiner are more granular
+        Not used in the forecast pipeline — SOUTH/WHub LMPs from PJM DataMiner are
+        more granular and node-specific.
 
         Endpoint: https://api.eia.gov/v2/electricity/rto/daily-region-data/data/
         Includes PJM region day-ahead and real-time average prices. Free, daily.

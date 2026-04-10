@@ -460,7 +460,7 @@ class TestPipelineIntegration:
     ]
 
     def test_pipeline_includes_enhanced_features(self):
-        """FeaturePipeline.build() output should include all 10 new enhanced features."""
+        """FeaturePipeline.build() output should include all 10 original enhanced features."""
         from src.features.pipeline import FeaturePipeline
         pipeline = FeaturePipeline()
         df = pipeline.build(

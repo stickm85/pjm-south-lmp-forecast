@@ -57,7 +57,7 @@ class GasClient:
     def fetch_henry_hub(self, start_date, end_date) -> pd.DataFrame:
         """Fetch daily Henry Hub futures price ($/MMBtu).
 
-        # Deprecated: use EIAClient.fetch_henry_hub_spot() instead (free, no auth)
+        Deprecated: use EIAClient.fetch_henry_hub_spot() instead (free, no auth).
 
         Returns DataFrame with columns: date, henry_hub_price
         """
